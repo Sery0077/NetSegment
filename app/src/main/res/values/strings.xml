@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">NetSegment</string>
+    <string name="server_label">Сервер</string>
+    <string name="client_label">Клиент</string>
 </resources>
