@@ -2,4 +2,23 @@
     <string name="app_name">NetSegment</string>
     <string name="server_label">Сервер</string>
     <string name="client_label">Клиент</string>
+    <string name="ip_address">IP:</string>
+    <string name="ip_address_server">Server IP:</string>
+    <string name="start_test">Start test</string>
+
+    <string name="snackbar_error">Ошибка загрузки</string>
+    <string name="snackbar_action">Повторить</string>
+
+    <string name="open_socket">Открыть сокет</string>
+    <string name="port_hint">Порт сокета</string>
+    <string name="ip_getting">Получение IP</string>
+    <string name="ip_getted">IP получен:</string>
+    <string name="ip_getting_error">Ошибка получения IP</string>
+    <string name="local_ip_address">Локальный IP:</string>
+
+    <string name="incorrect_port">Некорректный порт</string>
+    <string name="socket_alreade_opened">Сокет на этом порту уже открыт</string>
+    <string name="close_socket">Закрыть сокет</string>
+    <string name="socket_closed">Сокет на порту %s закрыт</string>
+    <string name="socket_opened">Сокет на порту %s открыт</string>
 </resources>

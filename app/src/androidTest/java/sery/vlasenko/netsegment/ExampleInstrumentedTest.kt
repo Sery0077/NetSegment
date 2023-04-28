@@ -1,12 +1,12 @@
 package sery.vlasenko.netsegment
 
-import androidx.test.platform.app.InstrumentationRegistry
+import androidx.annotation.StringRes
 import androidx.test.ext.junit.runners.AndroidJUnit4
-
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
-
-import org.junit.Assert.*
+import sery.vlasenko.netsegment.utils.ResourceProvider
 
 /**
  * Instrumented test, which will execute on an Android device.
@@ -17,8 +17,11 @@ import org.junit.Assert.*
 class ExampleInstrumentedTest {
     @Test
     fun useAppContext() {
-        // Context of the app under test.
-        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("sery.vlasenko.netsegment", appContext.packageName)
+        val str = getString(R.string.socket_closed, 10)
+        assert("Сокет на порту 10 закрыт" == str) {
+            println("Found $str")
+        }
     }
+
+    fun getString(@StringRes id: Int, vararg args: Any): String = ResourceProvider.getString(id, *args)
 }

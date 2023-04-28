@@ -1,12 +1,12 @@
 package sery.vlasenko.netsegment.ui.client
 
-import androidx.lifecycle.ViewModelProvider
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import sery.vlasenko.netsegment.R
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import sery.vlasenko.netsegment.databinding.FragmentClientBinding
 
 class ClientFragment : Fragment() {
 
@@ -14,19 +14,19 @@ class ClientFragment : Fragment() {
         fun newInstance() = ClientFragment()
     }
 
-    private lateinit var viewModel: ClientViewModel
+    private val viewModel: ClientViewModel by viewModels()
+
+    private var _binding: FragmentClientBinding? = null
+    private val binding
+        get() = _binding!!
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.fragment_client, container, false)
+    ): View {
+        _binding = FragmentClientBinding.inflate(inflater)
+        return binding.root
     }
 
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
-        super.onActivityCreated(savedInstanceState)
-        viewModel = ViewModelProvider(this)[ClientViewModel::class.java]
-
-    }
 
 }
