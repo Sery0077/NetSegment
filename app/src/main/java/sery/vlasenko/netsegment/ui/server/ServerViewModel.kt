@@ -1,5 +1,6 @@
 package sery.vlasenko.netsegment.ui.server
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
@@ -13,9 +14,18 @@ import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
 import sery.vlasenko.netsegment.model.LogItem
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
+import sery.vlasenko.netsegment.ui.server.log.LogState
+import sery.vlasenko.netsegment.ui.server.service.TcpClientHandler
+import sery.vlasenko.netsegment.utils.ResourceProvider
 import sery.vlasenko.netsegment.utils.toTimeFormat
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.IOException
 import java.net.ServerSocket
+import java.net.Socket
+import java.nio.channels.SocketChannel
 import java.util.*
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ServerViewModel : BaseRXViewModel() {
 
@@ -25,16 +35,48 @@ class ServerViewModel : BaseRXViewModel() {
 
     val logs: MutableList<LogItem> = mutableListOf()
 
-    private val _logState: MutableSharedFlow<LogState> = MutableSharedFlow(
-        replay = 10,
-        extraBufferCapacity = 10,
-    )
+    private val _logState: MutableSharedFlow<LogState> = MutableSharedFlow()
     val logState: SharedFlow<LogState>
         get() = _logState
+
+    private val _uiState: MutableLiveData<UiState> = MutableLiveData(UiState.SocketClosed)
+    val uiState: LiveData<UiState>
+        get() = _uiState
 
     private val _singleEvent: MutableLiveData<SingleEvent> = MutableLiveData()
     val singleEvent: LiveData<SingleEvent>
         get() = _singleEvent
+
+    private var socket: ServerSocket? = null
+    private var mPort = 4444
+
+    private var isWorking = AtomicBoolean(false)
+
+    private val runnable = Runnable {
+        var socket: Socket? = null
+        try {
+            this.socket = ServerSocket(mPort)
+            while (isWorking.get()) {
+                if (this.socket != null) {
+                    socket = this.socket!!.accept()
+
+                    val dataInputStream = DataInputStream(socket.getInputStream())
+                    val dataOutputStream = DataOutputStream(socket.getOutputStream())
+
+                    val t: Thread = TcpClientHandler(dataInputStream, dataOutputStream)
+                    t.start()
+                }
+            }
+        } catch (e: IOException) {
+            Log.e(TAG, e.stackTraceToString())
+            try {
+                socket?.close()
+            } catch (ex: IOException) {
+                Log.e(TAG, ex.stackTraceToString())
+            }
+        }
+    }
+
 
     init {
         getIp()
@@ -61,6 +103,20 @@ class ServerViewModel : BaseRXViewModel() {
         )
     }
 
+    fun socketOpened(port: String) {
+        _uiState.value = UiState.SocketOpened
+        addMessageToLogs(ResourceProvider.getString(R.string.socket_opened, port))
+    }
+
+    fun socketClosed(port: String) {
+        _uiState.value = UiState.SocketClosed
+        addMessageToLogs(ResourceProvider.getString(R.string.socket_closed, port))
+    }
+
+    fun isValidPort(port: String): Boolean {
+        return port.toIntOrNull() != null
+    }
+
     private fun addMessageToLogs(msg: String) {
         val rawTime = Calendar.getInstance().timeInMillis
 
@@ -73,46 +129,37 @@ class ServerViewModel : BaseRXViewModel() {
         }
     }
 
-    private var socket: ServerSocket? = null
-
-    fun onOpenSocketClicked(port: String) {
-        if (!validatePort(port)) {
-            _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.incorrect_port))
-            return
-        }
-
-        if (socket != null && !socket!!.isClosed) {
-            _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_alreade_opened))
-        } else {
-            try {
-                socket = ServerSocket(port.toInt())
-                addMessageToLogs(getString(R.string.socket_opened, port))
-            } catch (e: Exception) {
-                addMessageToLogs("Ошибка открытия сокета ${e.message}")
-            }
-        }
-    }
-
     fun onCloseSocketClicked() {
-        val port = socket?.localPort ?: 0
         closeSocket()
 
-        val msg = getString(R.string.socket_closed, port)
-        addMessageToLogs(msg)
-        _singleEvent.value = SingleEvent.ShowToastEvent(msg)
+        socketClosed(mPort.toString())
+    }
+
+    fun onOpenSocketClicked(port: String) {
+        if (isValidPort(port)) {
+
+            Thread(runnable).start()
+            isWorking.set(true)
+
+            socketOpened(port)
+        } else {
+            _singleEvent.value = SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
+        }
     }
 
     private fun closeSocket() {
+        isWorking.set(false)
         socket?.close()
         socket = null
-    }
-    private fun validatePort(port: String): Boolean {
-        return port.toIntOrNull() != null
     }
 
     override fun onCleared() {
         super.onCleared()
         closeSocket()
+    }
+
+    companion object {
+        private val TAG = ServerViewModel::class.java.simpleName
     }
 
 }

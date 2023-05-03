@@ -28,17 +28,25 @@ class MainActivity : AppCompatActivity(R.layout.activity_main) {
     private fun initFragmentContainer() {
         serverFragment = ServerFragment.newInstance()
         clientFragment = ClientFragment.newInstance()
+
+        supportFragmentManager.beginTransaction()
+            .add(binding.fragmentContainerViewTag.id, serverFragment)
+            .add(binding.fragmentContainerViewTag.id, clientFragment)
+            .hide(clientFragment)
+            .commitAllowingStateLoss()
     }
 
     private fun setClickers() {
         binding.radioServerClient.setOnCheckedChangeListener { _, i ->
             if (i == R.id.rb_client) {
                 supportFragmentManager.beginTransaction()
-                    .replace(binding.fragmentContainerViewTag.id, clientFragment)
+                    .show(clientFragment)
+                    .hide(serverFragment)
                     .commitAllowingStateLoss()
             } else {
                 supportFragmentManager.beginTransaction()
-                    .replace(binding.fragmentContainerViewTag.id, serverFragment)
+                    .show(serverFragment)
+                    .hide(clientFragment)
                     .commitAllowingStateLoss()
             }
         }

@@ -57,6 +57,18 @@
             app:layout_constraintTop_toTopOf="@id/ip_server_label"
             tools:text="192.128.3.4"/>
 
+        <EditText
+            android:id="@+id/et_port"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="8dp"
+            android:hint="@string/port_hint"
+            android:inputType="numberDecimal"
+            android:text="4444"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/et_server_ip"/>
+
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btn_start_test"
             android:layout_width="wrap_content"
@@ -64,7 +76,7 @@
             android:text="@string/start_test"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/et_server_ip"/>
+            app:layout_constraintTop_toBottomOf="@id/et_port"/>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rv_log"

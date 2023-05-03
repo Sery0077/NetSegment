@@ -1,4 +1,4 @@
-package sery.vlasenko.netsegment.ui.server
+package sery.vlasenko.netsegment.ui.server.log
 
 import android.view.LayoutInflater
 import android.view.View

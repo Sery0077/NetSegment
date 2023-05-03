@@ -12,6 +12,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.databinding.FragmentServerBinding
+import sery.vlasenko.netsegment.ui.server.log.LogAdapter
+import sery.vlasenko.netsegment.ui.server.log.LogState
 import sery.vlasenko.netsegment.utils.buildSnackAndShow
 import sery.vlasenko.netsegment.utils.orEmpty
 import sery.vlasenko.netsegment.utils.showToast
@@ -31,6 +33,7 @@ class ServerFragment : Fragment() {
         get() = _binding!!
 
     private val logAdapter = LogAdapter()
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -69,6 +72,29 @@ class ServerFragment : Fragment() {
                 }
             }
         }
+
+        viewModel.uiState.observe(viewLifecycleOwner) {
+            handleUiState(it)
+        }
+    }
+
+    private fun handleUiState(uiState: UiState) {
+        when (uiState) {
+            UiState.SocketClosed -> {
+                binding.run {
+                    etPort.isEnabled = true
+                    btnOpenSocket.isEnabled = true
+                    btnCloseSocket.isEnabled = false
+                }
+            }
+            UiState.SocketOpened -> {
+                binding.run {
+                    etPort.isEnabled = false
+                    btnOpenSocket.isEnabled = false
+                    btnCloseSocket.isEnabled = true
+                }
+            }
+        }
     }
 
     private fun setClickers() {
@@ -80,6 +106,7 @@ class ServerFragment : Fragment() {
             viewModel.onCloseSocketClicked()
         }
     }
+
 
     private fun initView() {
         binding.rvLog.adapter = logAdapter
@@ -115,5 +142,4 @@ class ServerFragment : Fragment() {
             }
         }
     }
-
 }
