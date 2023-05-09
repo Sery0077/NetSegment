@@ -56,6 +56,7 @@ class ServerViewModel : BaseRXViewModel() {
         var socket: Socket? = null
         try {
             this.socket = ServerSocket(mPort)
+
             while (isWorking.get()) {
                 if (this.socket != null) {
                     socket = this.socket!!.accept()
@@ -67,6 +68,7 @@ class ServerViewModel : BaseRXViewModel() {
                     t.start()
                 }
             }
+
         } catch (e: IOException) {
             Log.e(TAG, e.stackTraceToString())
             try {

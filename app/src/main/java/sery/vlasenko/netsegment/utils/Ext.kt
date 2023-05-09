@@ -15,3 +15,16 @@ fun ByteArray.toLong(): Long {
     buffer.flip()
     return buffer.long
 }
+
+fun Boolean.Companion.fromByte(b: Byte): Boolean =
+    when (b.toInt()) {
+        1 -> true
+        0 -> false
+        else -> throw IllegalArgumentException("Unexpected argument $b")
+    }
+
+fun Boolean.toByte(): Byte =
+    when (this) {
+        true -> 1
+        false -> 0
+    }

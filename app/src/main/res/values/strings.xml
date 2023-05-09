@@ -21,4 +21,6 @@
     <string name="close_socket">Закрыть сокет</string>
     <string name="socket_closed">Сокет на порту %s закрыт</string>
     <string name="socket_opened">Сокет на порту %s открыт</string>
+    <string name="connect">Соединиться</string>
+    <string name="connected">Подключено к %s</string>
 </resources>
