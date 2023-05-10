@@ -1,11 +1,10 @@
 package sery.vlasenko.netsegment.model.test
 
-import sery.vlasenko.netsegment.utils.PacketBuilder
 import sery.vlasenko.netsegment.utils.PacketType
 import sery.vlasenko.netsegment.utils.fromByte
 import sery.vlasenko.netsegment.utils.toByte
 import java.nio.ByteBuffer
-import java.util.Calendar
+import java.util.*
 
 data class PacketPing(
     private val type: PacketType = PacketType.PING,
@@ -13,20 +12,26 @@ data class PacketPing(
     val isAnswer: Boolean = false,
 ) : Packet() {
 
-    override val arraySize: Int = 11
-
     override fun send(): ByteArray {
         val buffer = ByteBuffer.allocate(arraySize)
-        buffer.put(99)
+        addHeader(buffer)
+
         buffer.put(type.toByte())
         buffer.put(isAnswer.toByte())
         buffer.putLong(time)
+
         return buffer.array()
     }
 
-    companion object {
-        fun fromByteArray(byteArray: ByteArray): PacketPing {
-            val b = ByteBuffer.wrap(byteArray)
+    companion object: PacketBuilder {
+        override val arraySize: Int
+            get() = 11
+
+        override fun fromByteArray(byteArray: ByteArray): PacketPing {
+            val b = if (byteArray[0] == headerByte)
+                ByteBuffer.wrap(byteArray, 1, arraySize)
+            else
+                ByteBuffer.wrap(byteArray)
 
             return PacketPing(
                 type = PacketType.fromByte(b.get()),
@@ -35,12 +40,4 @@ data class PacketPing(
             )
         }
     }
-}
-
-fun main() {
-    val p = PacketBuilder.getPacketPing()
-
-    val b = p.send()
-    val p2 = PacketPing.fromByteArray(b)
-    println()
 }

@@ -1,6 +1,5 @@
 package sery.vlasenko.netsegment.ui.server
 
-import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
@@ -13,17 +12,18 @@ import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
 import sery.vlasenko.netsegment.model.LogItem
+import sery.vlasenko.netsegment.model.connections.Connection
+import sery.vlasenko.netsegment.model.connections.TcpConnection
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
-import sery.vlasenko.netsegment.ui.server.log.LogState
 import sery.vlasenko.netsegment.ui.server.service.TcpClientHandler
+import sery.vlasenko.netsegment.ui.server.service.TcpHandler
 import sery.vlasenko.netsegment.utils.ResourceProvider
 import sery.vlasenko.netsegment.utils.toTimeFormat
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.io.IOException
 import java.net.ServerSocket
-import java.net.Socket
-import java.nio.channels.SocketChannel
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -33,11 +33,9 @@ class ServerViewModel : BaseRXViewModel() {
     val ipState: LiveData<ServerUiState>
         get() = _ipState
 
-    val logs: MutableList<LogItem> = mutableListOf()
-
-    private val _logState: MutableSharedFlow<LogState> = MutableSharedFlow()
-    val logState: SharedFlow<LogState>
-        get() = _logState
+    private val _recyclerState: MutableSharedFlow<RecyclerState> = MutableSharedFlow()
+    val recyclerState: SharedFlow<RecyclerState>
+        get() = _recyclerState
 
     private val _uiState: MutableLiveData<UiState> = MutableLiveData(UiState.SocketClosed)
     val uiState: LiveData<UiState>
@@ -52,31 +50,68 @@ class ServerViewModel : BaseRXViewModel() {
 
     private var isWorking = AtomicBoolean(false)
 
-    private val runnable = Runnable {
-        var socket: Socket? = null
-        try {
-            this.socket = ServerSocket(mPort)
+    val connections: MutableList<Connection<*>> = mutableListOf()
+    val logs: MutableList<LogItem> = mutableListOf()
 
-            while (isWorking.get()) {
-                if (this.socket != null) {
-                    socket = this.socket!!.accept()
+//    private val runnable = Runnable {
+//        var socket: Socket? = null
+//        try {
+//            this.socket = ServerSocket(mPort)
+//
+//            while (isWorking.get()) {
+//                if (this.socket != null) {
+//                    socket = this.socket!!.accept()
+//
+//                    val dataInputStream = DataInputStream(socket.getInputStream())
+//                    val dataOutputStream = DataOutputStream(socket.getOutputStream())
+//
+//                    val t: Thread = TcpClientHandler(dataInputStream, dataOutputStream)
+//                    t.start()
+//                }
+//            }
+//
+//        } catch (e: IOException) {
+//            Log.e(TAG, e.stackTraceToString())
+//            try {
+//                socket?.close()
+//            } catch (ex: IOException) {
+//                Log.e(TAG, ex.stackTraceToString())
+//            }
+//        }
+//    }
 
-                    val dataInputStream = DataInputStream(socket.getInputStream())
-                    val dataOutputStream = DataOutputStream(socket.getOutputStream())
+    private val socketListener = Thread {
+        while (isWorking.get()) {
+            val socket = socket?.accept()
 
-                    val t: Thread = TcpClientHandler(dataInputStream, dataOutputStream)
-                    t.start()
+            if (socket != null) {
+                val conn = TcpConnection(socket)
+
+                connections.add(conn)
+
+                val index = connections.lastIndex
+
+                println("socket" + socket.inetAddress.hostAddress)
+
+                TcpHandler(
+                    BufferedInputStream(socket.getInputStream()),
+                    BufferedOutputStream(socket.getOutputStream())
+                ) {
+                    connections.removeAt(index)
+                    viewModelScope.launch {
+                        _recyclerState.emit(RecyclerState.ConnRemove(index))
+                    }
+                }.apply {
+                    isDaemon = true
+                }.start()
+
+                viewModelScope.launch {
+                    _recyclerState.emit(RecyclerState.ConnAdd(connections.lastIndex))
                 }
             }
-
-        } catch (e: IOException) {
-            Log.e(TAG, e.stackTraceToString())
-            try {
-                socket?.close()
-            } catch (ex: IOException) {
-                Log.e(TAG, ex.stackTraceToString())
-            }
         }
+    }.apply {
+        isDaemon = true
     }
 
 
@@ -127,7 +162,7 @@ class ServerViewModel : BaseRXViewModel() {
         logs.add(LogItem(time, msg))
 
         viewModelScope.launch {
-            _logState.emit(LogState.LogAdd(logs.lastIndex))
+            _recyclerState.emit(RecyclerState.LogAdd(logs.lastIndex))
         }
     }
 
@@ -140,28 +175,46 @@ class ServerViewModel : BaseRXViewModel() {
     fun onOpenSocketClicked(port: String) {
         if (isValidPort(port)) {
 
-            Thread(runnable).start()
-            isWorking.set(true)
+            if (socket == null) {
+                socket = ServerSocket(port.toInt())
 
-            socketOpened(port)
+                Thread(socketListener).start()
+                isWorking.set(true)
+
+                socketOpened(port)
+            } else {
+                addMessageToLogs(getString(R.string.socket_already_opened))
+            }
+
         } else {
-            _singleEvent.value = SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
+            _singleEvent.value =
+                SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
         }
     }
 
     private fun closeSocket() {
+        socketListener.interrupt()
+
+        connections.forEach {
+            it.close()
+        }
+
         isWorking.set(false)
+
         socket?.close()
         socket = null
     }
 
     override fun onCleared() {
-        super.onCleared()
         closeSocket()
+        super.onCleared()
+    }
+
+    fun onStartTestClick(pos: Int) {
+        TODO("Not yet implemented")
     }
 
     companion object {
         private val TAG = ServerViewModel::class.java.simpleName
     }
-
 }

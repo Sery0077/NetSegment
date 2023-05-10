@@ -12,15 +12,15 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.databinding.FragmentServerBinding
+import sery.vlasenko.netsegment.ui.server.clients.ConnectionAdapter
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
 import sery.vlasenko.netsegment.ui.server.log.LogState
 import sery.vlasenko.netsegment.utils.buildSnackAndShow
 import sery.vlasenko.netsegment.utils.orEmpty
 import sery.vlasenko.netsegment.utils.showToast
-import java.net.Inet4Address
-import java.net.NetworkInterface
+import java.net.*
 
-class ServerFragment : Fragment() {
+class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
 
     companion object {
         fun newInstance() = ServerFragment()
@@ -33,7 +33,7 @@ class ServerFragment : Fragment() {
         get() = _binding!!
 
     private val logAdapter = LogAdapter()
-
+    private val connAdapter = ConnectionAdapter(this)
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -55,9 +55,15 @@ class ServerFragment : Fragment() {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.logState.collectLatest {
+                viewModel.recyclerState.collectLatest {
                     when (it) {
-                        is LogState.LogAdd -> {
+                        is RecyclerState.ConnAdd -> {
+                            connAdapter.notifyItemInserted(it.position)
+                        }
+                        is RecyclerState.ConnRemove -> {
+                            connAdapter.notifyItemRemoved(it.position)
+                        }
+                        is RecyclerState.LogAdd -> {
                             logAdapter.notifyItemInserted(it.position)
                         }
                     }
@@ -111,8 +117,11 @@ class ServerFragment : Fragment() {
     private fun initView() {
         binding.rvLog.adapter = logAdapter
         binding.rvLog.setHasFixedSize(true)
-
         logAdapter.submitList(viewModel.logs)
+
+        binding.rvConnections.adapter = connAdapter
+        binding.rvConnections.setHasFixedSize(true)
+        connAdapter.submitList(viewModel.connections)
 
         binding.tvLocalIp.text = getLocalIp()
     }
@@ -141,5 +150,9 @@ class ServerFragment : Fragment() {
 
             }
         }
+    }
+
+    override fun onStartTestClick(pos: Int) {
+        viewModel.onStartTestClick(pos)
     }
 }

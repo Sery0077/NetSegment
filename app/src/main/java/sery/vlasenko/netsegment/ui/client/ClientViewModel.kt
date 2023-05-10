@@ -1,7 +1,5 @@
 package sery.vlasenko.netsegment.ui.client
 
-import android.os.Handler
-import android.os.Looper
 import androidx.lifecycle.*
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.kotlin.subscribeBy
@@ -20,8 +18,10 @@ import sery.vlasenko.netsegment.ui.server.SingleEvent
 import sery.vlasenko.netsegment.ui.server.UiState
 import sery.vlasenko.netsegment.ui.server.log.LogState
 import sery.vlasenko.netsegment.utils.*
+import java.io.ObjectOutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketOptions
 import java.util.*
 
 class ClientViewModel : BaseRXViewModel() {
@@ -97,6 +97,7 @@ class ClientViewModel : BaseRXViewModel() {
             viewModelScope.launch {
                 repeat(5) {
                     val p = PacketBuilder.getPacketPing().send()
+
                     socket
                         ?.getOutputStream()
                         ?.write(p)
@@ -119,5 +120,18 @@ class ClientViewModel : BaseRXViewModel() {
 //            }
         }.start()
     }
+
+    fun onDisconnectClicked() {
+        socket?.shutdownOutput()
+        socket?.shutdownInput()
+        socket?.close()
+        socket = null
+    }
+
+}
+
+fun main() {
+    val packet = PacketBuilder.getPacketPing()
+
 
 }

@@ -17,10 +17,12 @@
     <string name="local_ip_address">Локальный IP:</string>
 
     <string name="incorrect_port">Некорректный порт</string>
-    <string name="socket_alreade_opened">Сокет на этом порту уже открыт</string>
+    <string name="socket_already_opened">Сокет на этом порту уже открыт</string>
     <string name="close_socket">Закрыть сокет</string>
     <string name="socket_closed">Сокет на порту %s закрыт</string>
     <string name="socket_opened">Сокет на порту %s открыт</string>
     <string name="connect">Соединиться</string>
     <string name="connected">Подключено к %s</string>
+    <string name="port">Порт:</string>
+    <string name="disconnect">Отключиться</string>
 </resources>

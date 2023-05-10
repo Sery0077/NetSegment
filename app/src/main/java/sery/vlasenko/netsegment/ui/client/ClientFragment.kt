@@ -106,11 +106,15 @@ class ClientFragment : Fragment() {
     }
 
     private fun setClickers() {
-        binding.btnStartTest.setOnClickListener {
+        binding.btnConnect.setOnClickListener {
             val ip = binding.etServerIp.text.toString()
             val port = binding.etPort.text.toString()
 
             viewModel.onConnectClicked(ip, port)
+        }
+
+        binding.btnDisconnect.setOnClickListener {
+            viewModel.onDisconnectClicked()
         }
     }
 
