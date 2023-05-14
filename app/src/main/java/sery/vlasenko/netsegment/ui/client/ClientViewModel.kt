@@ -1,13 +1,16 @@
 package sery.vlasenko.netsegment.ui.client
 
-import androidx.lifecycle.*
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.viewModelScope
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.kotlin.subscribeBy
 import io.reactivex.rxjava3.schedulers.Schedulers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
 import sery.vlasenko.netsegment.model.LogItem
@@ -17,11 +20,12 @@ import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
 import sery.vlasenko.netsegment.ui.server.UiState
 import sery.vlasenko.netsegment.ui.server.log.LogState
-import sery.vlasenko.netsegment.utils.*
-import java.io.ObjectOutputStream
+import sery.vlasenko.netsegment.utils.PacketBuilder
+import sery.vlasenko.netsegment.utils.toTimeFormat
+import java.io.BufferedInputStream
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.net.SocketOptions
 import java.util.*
 
 class ClientViewModel : BaseRXViewModel() {
@@ -53,22 +57,22 @@ class ClientViewModel : BaseRXViewModel() {
     fun getIp() {
         disposable.add(
             NetworkModule.ipService.getPublicIp()
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnSubscribe {
-                addMessageToLogs(getString(R.string.ip_getting))
-            }
-            .subscribeBy(
-                onSuccess = {
-                    val ip = it.string().trim()
-                    _ipState.value = ServerUiState.Loaded(ip)
-                    addMessageToLogs("${getString(R.string.ip_getted)} $ip")
-                },
-                onError = {
-                    _ipState.value = ServerUiState.Error(it.message)
-                    addMessageToLogs("${getString(R.string.ip_getting_error)} ${it.message}")
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnSubscribe {
+                    addMessageToLogs(getString(R.string.ip_getting))
                 }
-            )
+                .subscribeBy(
+                    onSuccess = {
+                        val ip = it.string().trim()
+                        _ipState.value = ServerUiState.Loaded(ip)
+                        addMessageToLogs("${getString(R.string.ip_getted)} $ip")
+                    },
+                    onError = {
+                        _ipState.value = ServerUiState.Error(it.message)
+                        addMessageToLogs("${getString(R.string.ip_getting_error)} ${it.message}")
+                    }
+                )
         )
     }
 
@@ -94,15 +98,38 @@ class ClientViewModel : BaseRXViewModel() {
                 addMessageToLogs(getString(R.string.connected, port))
             }
 
+            val input = socket!!.getInputStream()
+            val output = socket!!.getOutputStream()
+
             viewModelScope.launch {
-                repeat(5) {
-                    val p = PacketBuilder.getPacketPing().send()
+                withContext(Dispatchers.IO) {
+                    while (true) {
+                        try {
+                            val r = input.read()
 
-                    socket
-                        ?.getOutputStream()
-                        ?.write(p)
+                            if (r == -1) {
 
-                    delay(1000)
+//                                break
+                            } else if (r == PacketBuilder.PACKET_HEADER) {
+                                val byteArray = ByteArray(PacketPing.arraySize - 1)
+
+                                input.read(byteArray)
+
+                                val receivedPacket = PacketPing.fromByteArray(byteArray)
+
+                                output.write(
+                                    PacketBuilder.getPacketPingAnswer(receivedPacket.time)
+                                        .send()
+                                )
+
+//                                println("Fefe" + receivedPacket.time)
+                            }
+                        } catch (e: IOException) {
+                            println("Client exception" + e.message)
+//                            break
+                        }
+                    }
+
                 }
             }
 

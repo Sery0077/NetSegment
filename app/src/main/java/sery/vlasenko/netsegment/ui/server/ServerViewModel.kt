@@ -15,14 +15,10 @@ import sery.vlasenko.netsegment.model.LogItem
 import sery.vlasenko.netsegment.model.connections.Connection
 import sery.vlasenko.netsegment.model.connections.TcpConnection
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
-import sery.vlasenko.netsegment.ui.server.service.TcpClientHandler
-import sery.vlasenko.netsegment.ui.server.service.TcpHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.PingHandler
+import sery.vlasenko.netsegment.ui.server.service.MyHandler
 import sery.vlasenko.netsegment.utils.ResourceProvider
 import sery.vlasenko.netsegment.utils.toTimeFormat
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
-import java.io.DataInputStream
-import java.io.DataOutputStream
 import java.net.ServerSocket
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
@@ -53,67 +49,42 @@ class ServerViewModel : BaseRXViewModel() {
     val connections: MutableList<Connection<*>> = mutableListOf()
     val logs: MutableList<LogItem> = mutableListOf()
 
-//    private val runnable = Runnable {
-//        var socket: Socket? = null
-//        try {
-//            this.socket = ServerSocket(mPort)
-//
-//            while (isWorking.get()) {
-//                if (this.socket != null) {
-//                    socket = this.socket!!.accept()
-//
-//                    val dataInputStream = DataInputStream(socket.getInputStream())
-//                    val dataOutputStream = DataOutputStream(socket.getOutputStream())
-//
-//                    val t: Thread = TcpClientHandler(dataInputStream, dataOutputStream)
-//                    t.start()
-//                }
-//            }
-//
-//        } catch (e: IOException) {
-//            Log.e(TAG, e.stackTraceToString())
-//            try {
-//                socket?.close()
-//            } catch (ex: IOException) {
-//                Log.e(TAG, ex.stackTraceToString())
-//            }
-//        }
-//    }
-
     private val socketListener = Thread {
         while (isWorking.get()) {
             val socket = socket?.accept()
 
             if (socket != null) {
-                val conn = TcpConnection(socket)
+                val index = connections.lastIndex + 1
 
-                connections.add(conn)
+                val conn = TcpConnection(socket, null)
 
-                val index = connections.lastIndex
+                val handler = PingHandler(socket,
+                    onPingGet = {
+                        connections[index].ping = it
+                        _recyclerState.onNext(RecyclerState.ConnChanged(index, it))
 
-                println("socket" + socket.inetAddress.hostAddress)
-
-                TcpHandler(
-                    BufferedInputStream(socket.getInputStream()),
-                    BufferedOutputStream(socket.getOutputStream())
-                ) {
-                    connections.removeAt(index)
-                    viewModelScope.launch {
-                        _recyclerState.emit(RecyclerState.ConnRemove(index))
+                        connections[index].logs.add(LogItem(message = "Ping get"))
+                        _recyclerState.onNext(RecyclerState.LogAdd(index, LogItem(message = "Ping get")))
+                    },
+                    onUnknownPacketType = {
+//                        _recyclerState.onNext(RecyclerState.LogAdd())
+                    },
+                    close = {
+                        connections.removeAt(index)
+                        _recyclerState.onNext(RecyclerState.ConnRemove(index))
                     }
-                }.apply {
-                    isDaemon = true
-                }.start()
+                )
 
-                viewModelScope.launch {
-                    _recyclerState.emit(RecyclerState.ConnAdd(connections.lastIndex))
-                }
+                conn.handler = handler
+                connections.add(conn)
+                conn.handler?.start()
+
+                _recyclerState.onNext(RecyclerState.ConnAdd(connections.lastIndex))
             }
         }
     }.apply {
         isDaemon = true
     }
-
 
     init {
         getIp()
@@ -162,7 +133,7 @@ class ServerViewModel : BaseRXViewModel() {
         logs.add(LogItem(time, msg))
 
         viewModelScope.launch {
-            _recyclerState.emit(RecyclerState.LogAdd(logs.lastIndex))
+//            _recyclerState.emit(RecyclerState.LogAdd(logs.lastIndex))
         }
     }
 
@@ -178,7 +149,7 @@ class ServerViewModel : BaseRXViewModel() {
             if (socket == null) {
                 socket = ServerSocket(port.toInt())
 
-                Thread(socketListener).start()
+                socketListener.start()
                 isWorking.set(true)
 
                 socketOpened(port)
@@ -211,7 +182,28 @@ class ServerViewModel : BaseRXViewModel() {
     }
 
     fun onStartTestClick(pos: Int) {
-        TODO("Not yet implemented")
+        val conn = connections[pos]
+
+        println("StartTestClick" + Thread.currentThread().id)
+
+        conn.handler?.interrupt()
+
+        if (conn is TcpConnection) {
+            val my = MyHandler(conn.socket, conn.input, conn.output) {}
+
+            my.start()
+
+            Thread {
+                conn.handler = PingHandler(conn.socket, close = {}, onPingGet = {})
+                conn.handler?.start()
+            }.start()
+        }
+    }
+
+    private fun <T> MutableSharedFlow<T>.onNext(value: T) {
+        viewModelScope.launch {
+            this@onNext.emit(value)
+        }
     }
 
     companion object {

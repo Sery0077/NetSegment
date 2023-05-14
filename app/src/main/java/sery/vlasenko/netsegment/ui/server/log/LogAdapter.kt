@@ -30,6 +30,8 @@ class LogAdapter : ListAdapter<LogItem, LogAdapter.LogVH>(DIFF_UTIL_CALLBACK) {
             tvMessage.text = log.message
         }
     }
+
+
 }
 
 object DIFF_UTIL_CALLBACK : DiffUtil.ItemCallback<LogItem>() {

@@ -1,12 +1,19 @@
 package sery.vlasenko.netsegment.model.connections
 
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
-import java.io.ObjectInputStream
-import java.io.ObjectOutputStream
+import sery.vlasenko.netsegment.model.testscripts.Timeouts
+import sery.vlasenko.netsegment.domain.socket_handlers.PingHandler
 import java.net.Socket
 
-class TcpConnection(socket: Socket): Connection<Socket>(socket) {
+class TcpConnection(socket: Socket, handler: PingHandler?): Connection<Socket>(socket, handler) {
+
+    companion object {
+        const val DEFAULT_TIMEOUT = 1000
+    }
+
+    init {
+        setTimeout(Timeouts.CLOSE_TIMEOUT)
+    }
+
     override val ip: String?
         get() = socket.inetAddress.hostAddress
 
@@ -22,8 +29,12 @@ class TcpConnection(socket: Socket): Connection<Socket>(socket) {
     override val isClosed: Boolean
         get() = socket.isClosed
 
-    val input: BufferedInputStream = BufferedInputStream(socket.getInputStream())
-    val output: BufferedOutputStream = BufferedOutputStream(socket.getOutputStream())
+    val input = socket.getInputStream()
+    val output = socket.getOutputStream()
+
+    fun setTimeout(t: Int) {
+        socket.soTimeout = t
+    }
 
     override fun close() = socket.close()
 }

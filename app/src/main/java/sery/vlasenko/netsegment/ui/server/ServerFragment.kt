@@ -12,9 +12,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.databinding.FragmentServerBinding
-import sery.vlasenko.netsegment.ui.server.clients.ConnectionAdapter
+import sery.vlasenko.netsegment.ui.server.connections.ConnectionAdapter
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
-import sery.vlasenko.netsegment.ui.server.log.LogState
 import sery.vlasenko.netsegment.utils.buildSnackAndShow
 import sery.vlasenko.netsegment.utils.orEmpty
 import sery.vlasenko.netsegment.utils.showToast
@@ -64,7 +63,11 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
                             connAdapter.notifyItemRemoved(it.position)
                         }
                         is RecyclerState.LogAdd -> {
+                            connAdapter.notifyItemChanged(it.position, it.logItem)
                             logAdapter.notifyItemInserted(it.position)
+                        }
+                        is RecyclerState.ConnChanged -> {
+                            connAdapter.notifyItemChanged(it.position, it.ping)
                         }
                     }
                 }
@@ -115,10 +118,6 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
 
 
     private fun initView() {
-        binding.rvLog.adapter = logAdapter
-        binding.rvLog.setHasFixedSize(true)
-        logAdapter.submitList(viewModel.logs)
-
         binding.rvConnections.adapter = connAdapter
         binding.rvConnections.setHasFixedSize(true)
         connAdapter.submitList(viewModel.connections)

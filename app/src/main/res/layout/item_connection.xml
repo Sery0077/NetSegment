@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="70dp">
+    android:layout_height="wrap_content">
 
 
     <androidx.appcompat.widget.AppCompatTextView
@@ -17,7 +18,7 @@
         android:textAllCaps="true"
         android:textColor="@color/white"
         android:textSize="16sp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toBottomOf="@id/barrier"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         tools:text="UdP" />
@@ -27,8 +28,8 @@
         android:layout_width="45dp"
         android:layout_height="45dp"
         android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
         android:src="@drawable/ic_smartphone"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@id/item_conn_tv_protocol"
         app:layout_constraintTop_toTopOf="parent" />
 
@@ -72,16 +73,44 @@
         app:layout_constraintTop_toTopOf="@id/tv_port_label"
         tools:text="4444" />
 
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/item_conn_tv_ping"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="4dp"
+        app:layout_constraintBottom_toBottomOf="@id/item_conn_btn_start_test"
+        app:layout_constraintEnd_toStartOf="@+id/item_conn_btn_start_test"
+        app:layout_constraintTop_toTopOf="@id/item_conn_btn_start_test"
+        tools:text="52 мс" />
+
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/item_conn_btn_start_test"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
         android:layout_marginEnd="6dp"
         android:backgroundTint="@color/teal_700"
         android:text="@string/start_test"
         android:textColor="@color/white"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/barrier"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:barrierDirection="bottom"
+        app:constraint_referenced_ids="item_conn_btn_start_test" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/item_conn_rv_logs"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:layout_marginTop="4dp"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/barrier"
+        tools:itemCount="10" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

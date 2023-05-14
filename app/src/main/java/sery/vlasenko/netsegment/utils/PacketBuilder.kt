@@ -3,6 +3,8 @@ package sery.vlasenko.netsegment.utils
 import sery.vlasenko.netsegment.model.test.PacketPing
 
 object PacketBuilder {
+
+    const val PACKET_HEADER = 99
     fun getPacketPing(): PacketPing = PacketPing()
     fun getPacketPingAnswer(t: Long): PacketPing = PacketPing(time = t, isAnswer = true)
 

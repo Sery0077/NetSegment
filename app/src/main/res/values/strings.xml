@@ -25,4 +25,6 @@
     <string name="connected">Подключено к %s</string>
     <string name="port">Порт:</string>
     <string name="disconnect">Отключиться</string>
+
+    <string name="ping_pattern">%s мс</string>
 </resources>

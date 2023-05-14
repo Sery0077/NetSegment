@@ -2,7 +2,7 @@ package sery.vlasenko.netsegment.model.connections
 
 import java.net.DatagramSocket
 
-class UdpConnection(socket: DatagramSocket): Connection<DatagramSocket>(socket) {
+class UdpConnection(socket: DatagramSocket, handler: Thread): Connection<DatagramSocket>(socket, handler) {
     override val ip: String?
         get() = socket.inetAddress.hostAddress
 
