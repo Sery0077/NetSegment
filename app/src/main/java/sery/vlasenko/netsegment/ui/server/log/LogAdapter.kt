@@ -9,6 +9,8 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.model.LogItem
+import sery.vlasenko.netsegment.model.LogType
+import sery.vlasenko.netsegment.utils.toTimeFormat
 
 class LogAdapter : ListAdapter<LogItem, LogAdapter.LogVH>(DIFF_UTIL_CALLBACK) {
 
@@ -26,8 +28,15 @@ class LogAdapter : ListAdapter<LogItem, LogAdapter.LogVH>(DIFF_UTIL_CALLBACK) {
         private val tvMessage: TextView = view.findViewById(R.id.tv_message)
 
         fun bind(log: LogItem) {
-            tvTime.text = log.time
+            tvTime.text = log.time.toTimeFormat()
             tvMessage.text = log.message
+
+            when (log.type) {
+                LogType.MESSAGE -> {}
+                LogType.ERROR -> {
+                    tvMessage.setTextColor(itemView.context.getColor(R.color.log_error))
+                }
+            }
         }
     }
 

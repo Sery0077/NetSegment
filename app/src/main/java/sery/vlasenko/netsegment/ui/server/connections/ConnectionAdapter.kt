@@ -1,7 +1,6 @@
 package sery.vlasenko.netsegment.ui.server.connections
 
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -14,7 +13,7 @@ import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.model.LogItem
 import sery.vlasenko.netsegment.model.connections.Connection
 import sery.vlasenko.netsegment.model.connections.Protocol
-import sery.vlasenko.netsegment.model.testscripts.Timeouts
+import sery.vlasenko.netsegment.utils.TimeConst
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
 
 class ConnectionAdapter(
@@ -79,7 +78,7 @@ class ConnectionAdapter(
 
             val ping = conn.ping
 
-            tvPing.text = if (ping > Timeouts.PING_TIMEOUT) {
+            tvPing.text = if (ping > TimeConst.PING_TIMEOUT) {
                 itemView.context.getString(R.string.ping_pattern, "-")
             } else {
                 itemView.context.getString(R.string.ping_pattern, conn.ping.toString())

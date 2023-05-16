@@ -1,6 +1,6 @@
 package sery.vlasenko.netsegment.model.connections
 
-import sery.vlasenko.netsegment.model.testscripts.Timeouts
+import sery.vlasenko.netsegment.utils.TimeConst
 import sery.vlasenko.netsegment.domain.socket_handlers.PingHandler
 import java.net.Socket
 
@@ -11,7 +11,7 @@ class TcpConnection(socket: Socket, handler: PingHandler?): Connection<Socket>(s
     }
 
     init {
-        setTimeout(Timeouts.CLOSE_TIMEOUT)
+        setTimeout(TimeConst.CLOSE_TIMEOUT)
     }
 
     override val ip: String?

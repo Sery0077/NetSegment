@@ -15,7 +15,7 @@ abstract class Packet {
         b.put(headerByte)
     }
 
-    interface PacketBuilder {
+    interface Factory {
         val arraySize: Int
 
         fun fromByteArray(byteArray: ByteArray): Packet

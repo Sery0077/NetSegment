@@ -15,12 +15,14 @@ import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
 import sery.vlasenko.netsegment.model.LogItem
 import sery.vlasenko.netsegment.model.test.PacketPing
+import sery.vlasenko.netsegment.model.test.PacketPingAnswer
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
 import sery.vlasenko.netsegment.ui.server.UiState
 import sery.vlasenko.netsegment.ui.server.log.LogState
 import sery.vlasenko.netsegment.utils.PacketBuilder
+import sery.vlasenko.netsegment.utils.PacketType
 import sery.vlasenko.netsegment.utils.toTimeFormat
 import java.io.BufferedInputStream
 import java.io.IOException
@@ -81,7 +83,7 @@ class ClientViewModel : BaseRXViewModel() {
 
         val time = rawTime.toTimeFormat()
 
-        logs.add(LogItem(time, msg))
+//        logs.add(LogItem(time, msg))
 
         viewModelScope.launch {
             _logState.emit(LogState.LogAdd(logs.lastIndex))
@@ -111,18 +113,23 @@ class ClientViewModel : BaseRXViewModel() {
 
 //                                break
                             } else if (r == PacketBuilder.PACKET_HEADER) {
-                                val byteArray = ByteArray(PacketPing.arraySize - 1)
+                                val packetType = PacketType.fromByte(input.read().toByte())
 
-                                input.read(byteArray)
+//                                when (packetType) {
+//                                    PacketType.PING_ANSWER -> handlePingAnswerPacket()
+//                                    PacketType.PING -> handlePingPacket()
+//                                    else -> onUnknownPacketType(packetType)
+//                                }
 
-                                val receivedPacket = PacketPing.fromByteArray(byteArray)
+                                if (packetType == PacketType.PING) {
+                                    val byteArray = ByteArray(PacketPing.arraySize)
 
-                                output.write(
-                                    PacketBuilder.getPacketPingAnswer(receivedPacket.time)
-                                        .send()
-                                )
+                                    input.read(byteArray)
 
-//                                println("Fefe" + receivedPacket.time)
+                                    val receivedPacket = PacketPingAnswer.fromByteArray(byteArray)
+
+                                    output.write(PacketBuilder.getPacketPingAnswer(receivedPacket.time).send())
+                                }
                             }
                         } catch (e: IOException) {
                             println("Client exception" + e.message)
@@ -132,19 +139,6 @@ class ClientViewModel : BaseRXViewModel() {
 
                 }
             }
-
-//            val data = ByteArray(10)
-//
-//            while (true) {
-//
-//                val count: Int = socket?.getInputStream()?.read(data, 0, 10) ?: 0
-//
-//                if (count > 0) {
-//                    val p = PacketPing.fromByteArray(data)
-//
-//                    println("Received" + p.time)
-//                }
-//            }
         }.start()
     }
 

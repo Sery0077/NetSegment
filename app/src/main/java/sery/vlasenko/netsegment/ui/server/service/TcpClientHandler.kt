@@ -3,8 +3,8 @@ package sery.vlasenko.netsegment.ui.server.service
 import okio.IOException
 import sery.vlasenko.netsegment.model.test.PacketPing
 import sery.vlasenko.netsegment.model.test.TestResult
-import sery.vlasenko.netsegment.model.testscripts.Scripts
-import sery.vlasenko.netsegment.model.testscripts.Timeouts
+import sery.vlasenko.netsegment.utils.Scripts
+import sery.vlasenko.netsegment.utils.TimeConst
 import sery.vlasenko.netsegment.utils.PacketBuilder
 import sery.vlasenko.netsegment.utils.PacketType
 import java.io.*
@@ -125,7 +125,7 @@ class MyHandler(
     private fun handlePingType() {
         val p = PacketBuilder.getPacketPing()
 
-        socket.soTimeout = Timeouts.PING_TIMEOUT
+        socket.soTimeout = TimeConst.PING_TIMEOUT
 
         try {
             output.write(p.send())
@@ -148,6 +148,6 @@ class MyHandler(
             println("HandlePingType " + e.message)
         }
 
-        socket.soTimeout = Timeouts.CLOSE_TIMEOUT
+        socket.soTimeout = TimeConst.CLOSE_TIMEOUT
     }
 }

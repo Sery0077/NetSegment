@@ -1,4 +1,4 @@
-package sery.vlasenko.netsegment.model.testscripts
+package sery.vlasenko.netsegment.utils
 
 import sery.vlasenko.netsegment.utils.PacketType
 
