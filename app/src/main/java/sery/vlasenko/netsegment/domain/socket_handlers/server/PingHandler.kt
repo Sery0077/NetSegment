@@ -1,4 +1,4 @@
-package sery.vlasenko.netsegment.domain.socket_handlers
+package sery.vlasenko.netsegment.domain.socket_handlers.server
 
 import okio.IOException
 import sery.vlasenko.netsegment.model.test.PacketPing
@@ -20,6 +20,9 @@ class PingHandler(
     var onUnknownPacketType: (packetType: PacketType) -> Unit = {},
     val onClose: () -> Unit = {},
 ) : Thread() {
+    init {
+        isDaemon = true
+    }
 
     companion object {
         const val TAG = "CloseHandler"

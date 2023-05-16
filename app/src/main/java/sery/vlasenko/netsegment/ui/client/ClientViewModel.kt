@@ -6,29 +6,24 @@ import androidx.lifecycle.viewModelScope
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.kotlin.subscribeBy
 import io.reactivex.rxjava3.schedulers.Schedulers
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
+import sery.vlasenko.netsegment.domain.socket_handlers.client.ClientTcpHandler
 import sery.vlasenko.netsegment.model.LogItem
-import sery.vlasenko.netsegment.model.test.PacketPing
-import sery.vlasenko.netsegment.model.test.PacketPingAnswer
+import sery.vlasenko.netsegment.model.connections.Connection
+import sery.vlasenko.netsegment.model.connections.Protocol
+import sery.vlasenko.netsegment.model.connections.TcpConnection
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
 import sery.vlasenko.netsegment.ui.server.UiState
 import sery.vlasenko.netsegment.ui.server.log.LogState
-import sery.vlasenko.netsegment.utils.PacketBuilder
-import sery.vlasenko.netsegment.utils.PacketType
-import sery.vlasenko.netsegment.utils.toTimeFormat
-import java.io.BufferedInputStream
-import java.io.IOException
+import java.net.ConnectException
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.util.*
 
 class ClientViewModel : BaseRXViewModel() {
 
@@ -50,10 +45,10 @@ class ClientViewModel : BaseRXViewModel() {
     val singleEvent: LiveData<SingleEvent>
         get() = _singleEvent
 
-    private var socket: Socket? = null
+    private var conn: Connection<*>? = null
 
     init {
-        getIp()
+//        getIp()
     }
 
     fun getIp() {
@@ -79,80 +74,65 @@ class ClientViewModel : BaseRXViewModel() {
     }
 
     private fun addMessageToLogs(msg: String) {
-        val rawTime = Calendar.getInstance().timeInMillis
-
-        val time = rawTime.toTimeFormat()
-
-//        logs.add(LogItem(time, msg))
+        logs.add(LogItem(message = msg))
 
         viewModelScope.launch {
             _logState.emit(LogState.LogAdd(logs.lastIndex))
         }
     }
 
-    fun onConnectClicked(ip: String, port: String) {
-        Thread {
-            socket = Socket()
+    private fun openTcpSocket(ip: String, port: String) {
+        try {
+            val socket = Socket()
+            socket.connect(InetSocketAddress(ip, port.toInt()))
 
-            socket?.connect(InetSocketAddress(ip, port.toInt()))
+            if (socket.isConnected) {
+                addMessageToLogs(getString(R.string.connected, "$ip $port"))
+                _uiState.value = UiState.SocketOpened
 
-            if (socket?.isConnected == true) {
-                addMessageToLogs(getString(R.string.connected, port))
-            }
-
-            val input = socket!!.getInputStream()
-            val output = socket!!.getOutputStream()
-
-            viewModelScope.launch {
-                withContext(Dispatchers.IO) {
-                    while (true) {
-                        try {
-                            val r = input.read()
-
-                            if (r == -1) {
-
-//                                break
-                            } else if (r == PacketBuilder.PACKET_HEADER) {
-                                val packetType = PacketType.fromByte(input.read().toByte())
-
-//                                when (packetType) {
-//                                    PacketType.PING_ANSWER -> handlePingAnswerPacket()
-//                                    PacketType.PING -> handlePingPacket()
-//                                    else -> onUnknownPacketType(packetType)
-//                                }
-
-                                if (packetType == PacketType.PING) {
-                                    val byteArray = ByteArray(PacketPing.arraySize)
-
-                                    input.read(byteArray)
-
-                                    val receivedPacket = PacketPingAnswer.fromByteArray(byteArray)
-
-                                    output.write(PacketBuilder.getPacketPingAnswer(receivedPacket.time).send())
-                                }
-                            }
-                        } catch (e: IOException) {
-                            println("Client exception" + e.message)
-//                            break
-                        }
-                    }
-
+                conn = TcpConnection(socket, getHandler(socket)).apply {
+                    this.setTimeout(0)
+                    handler?.start()
                 }
             }
-        }.start()
+        } catch (e: ConnectException) {
+            addMessageToLogs(getString(R.string.connect_error, "$ip $port"))
+        }
+    }
+
+    private fun getHandler(socket: Socket): ClientTcpHandler {
+        return ClientTcpHandler(
+            socket,
+            onClose = this::closeSocket
+        )
+    }
+
+    private fun closeSocket() {
+        conn?.handler?.interrupt()
+        conn?.handler = null
+
+        (conn?.socket as? Socket)?.close()
+
+        conn = null
+
+        _uiState.postValue(UiState.SocketClosed)
+    }
+
+    fun onConnectClicked(ip: String, port: String, protocol: Protocol) {
+        if (protocol == Protocol.TCP) {
+            openTcpSocket(ip, port)
+        } else {
+            // TODO add udp protocol
+        }
     }
 
     fun onDisconnectClicked() {
-        socket?.shutdownOutput()
-        socket?.shutdownInput()
-        socket?.close()
-        socket = null
+        closeSocket()
     }
 
-}
-
-fun main() {
-    val packet = PacketBuilder.getPacketPing()
-
+    override fun onCleared() {
+        closeSocket()
+        super.onCleared()
+    }
 
 }

@@ -1,10 +1,10 @@
 package sery.vlasenko.netsegment.model.connections
 
 import sery.vlasenko.netsegment.utils.TimeConst
-import sery.vlasenko.netsegment.domain.socket_handlers.PingHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.server.PingHandler
 import java.net.Socket
 
-class TcpConnection(socket: Socket, handler: PingHandler?): Connection<Socket>(socket, handler) {
+class TcpConnection(socket: Socket, handler: Thread?): Connection<Socket>(socket, handler) {
 
     companion object {
         const val DEFAULT_TIMEOUT = 1000
@@ -29,8 +29,11 @@ class TcpConnection(socket: Socket, handler: PingHandler?): Connection<Socket>(s
     override val isClosed: Boolean
         get() = socket.isClosed
 
-    val input = socket.getInputStream()
-    val output = socket.getOutputStream()
+    val input
+        get() = socket.getInputStream()
+
+    val output
+        get() = socket.getOutputStream()
 
     fun setTimeout(t: Int) {
         socket.soTimeout = t

@@ -11,8 +11,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
-import sery.vlasenko.netsegment.domain.socket_handlers.ConnectionHandler
-import sery.vlasenko.netsegment.domain.socket_handlers.PingHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.server.ConnectionHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.server.PingHandler
 import sery.vlasenko.netsegment.model.LogItem
 import sery.vlasenko.netsegment.model.LogType
 import sery.vlasenko.netsegment.model.connections.Connection
@@ -22,7 +22,6 @@ import sery.vlasenko.netsegment.ui.server.service.MyHandler
 import sery.vlasenko.netsegment.utils.ResourceProvider
 import java.net.ServerSocket
 import java.net.Socket
-import java.util.*
 
 class ServerViewModel : BaseRXViewModel() {
 
@@ -30,7 +29,8 @@ class ServerViewModel : BaseRXViewModel() {
     val ipState: LiveData<ServerUiState>
         get() = _ipState
 
-    private val _recyclerState: MutableSharedFlow<RecyclerState> = MutableSharedFlow(extraBufferCapacity = 20)
+    private val _recyclerState: MutableSharedFlow<RecyclerState> =
+        MutableSharedFlow(extraBufferCapacity = 20)
     val recyclerState: SharedFlow<RecyclerState>
         get() = _recyclerState
 
@@ -50,25 +50,20 @@ class ServerViewModel : BaseRXViewModel() {
     val connections: MutableList<Connection<*>> = mutableListOf()
 
     init {
-        getIp()
+//        getIp()
     }
 
     fun getIp() {
         disposable.add(NetworkModule.ipService.getPublicIp()
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .doOnSubscribe {
-//                addMessageToLogs(getString(R.string.ip_getting))
-            }
             .subscribeBy(
                 onSuccess = {
                     val ip = it.string().trim()
                     _ipState.value = ServerUiState.Loaded(ip)
-//                    addMessageToLogs("${getString(R.string.ip_getted)} $ip")
                 },
                 onError = {
                     _ipState.value = ServerUiState.Error(it.message)
-//                    addMessageToLogs("${getString(R.string.ip_getting_error)} ${it.message}")
                 }
             )
         )
@@ -76,29 +71,17 @@ class ServerViewModel : BaseRXViewModel() {
 
     fun socketOpened(port: String) {
         _uiState.value = UiState.SocketOpened
-//        addMessageToLogs(ResourceProvider.getString(R.string.socket_opened, port))
+        _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_opened, port))
     }
 
     fun socketClosed(port: String) {
         _uiState.value = UiState.SocketClosed
-//        addMessageToLogs(ResourceProvider.getString(R.string.socket_closed, port))
+        _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_closed, port))
     }
 
     fun isValidPort(port: String): Boolean {
         return port.toIntOrNull() != null
     }
-
-//    private fun addMessageToLogs(msg: String) {
-//        val rawTime = Calendar.getInstance().timeInMillis
-//
-//        val time = rawTime.toTimeFormat()
-//
-////        logs.add(LogItem(time, msg))
-//
-//        viewModelScope.launch {
-////            _recyclerState.emit(RecyclerState.LogAdd(logs.lastIndex))
-//        }
-//    }
 
     fun onCloseSocketClicked() {
         closeSocket()
@@ -108,12 +91,11 @@ class ServerViewModel : BaseRXViewModel() {
 
     fun onOpenSocketClicked(port: String) {
         if (isValidPort(port)) {
-
             if (socket == null) {
                 socket = ServerSocket(port.toInt())
 
                 connectionHandler = ConnectionHandler(socket,
-                    onConnectionAdd = {socket ->
+                    onConnectionAdd = { socket ->
                         onConnectionAdd(socket)
                         println("fefe add")
                     },
@@ -125,9 +107,9 @@ class ServerViewModel : BaseRXViewModel() {
 
                 socketOpened(port)
             } else {
-//                addMessageToLogs(getString(R.string.socket_already_opened))
+                _singleEvent.value =
+                    SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
             }
-
         } else {
             _singleEvent.value =
                 SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
@@ -156,7 +138,7 @@ class ServerViewModel : BaseRXViewModel() {
                 )
             },
             onClose = {
-                connections.removeAt(index)
+                connections.remove(conn)
                 _recyclerState.onNext(RecyclerState.ConnRemove(index))
             }
         )

@@ -1,8 +1,6 @@
 package sery.vlasenko.netsegment.ui.client
 
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,23 +9,17 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import sery.vlasenko.netsegment.R
-import sery.vlasenko.netsegment.databinding.FragmentClientBinding
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
+import sery.vlasenko.netsegment.ui.server.UiState
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
 import sery.vlasenko.netsegment.ui.server.log.LogState
 import sery.vlasenko.netsegment.utils.buildSnackAndShow
 import sery.vlasenko.netsegment.utils.showToast
-import sery.vlasenko.netsegment.utils.toBytes
-import sery.vlasenko.netsegment.utils.toLong
-import java.net.InetSocketAddress
-import java.net.Socket
-import java.util.Calendar
+import sery.vlasenko.netsegment.databinding.FragmentClientBinding
+import sery.vlasenko.netsegment.model.connections.Protocol
 
 class ClientFragment : Fragment() {
 
@@ -61,6 +53,10 @@ class ClientFragment : Fragment() {
             handleIpState(it)
         }
 
+        viewModel.uiState.observe(viewLifecycleOwner) {
+            handleUiState(it)
+        }
+
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.logState.collectLatest {
@@ -81,6 +77,20 @@ class ClientFragment : Fragment() {
             }
         }
     }
+
+    private fun handleUiState(state: UiState) {
+        when (state) {
+            UiState.SocketClosed -> {
+                binding.btnConnect.isEnabled = true
+                binding.btnDisconnect.isEnabled = false
+            }
+            UiState.SocketOpened -> {
+                binding.btnConnect.isEnabled = false
+                binding.btnDisconnect.isEnabled = true
+            }
+        }
+    }
+
     private fun handleIpState(state: ServerUiState) {
         when (state) {
             is ServerUiState.Error -> {
@@ -109,12 +119,21 @@ class ClientFragment : Fragment() {
         binding.btnConnect.setOnClickListener {
             val ip = binding.etServerIp.text.toString()
             val port = binding.etPort.text.toString()
+            val protocol = handleProtocol()
 
-            viewModel.onConnectClicked(ip, port)
+            viewModel.onConnectClicked(ip, port, protocol)
         }
 
         binding.btnDisconnect.setOnClickListener {
             viewModel.onDisconnectClicked()
+        }
+    }
+
+    private fun handleProtocol(): Protocol {
+        return when (binding.rgProtocol.checkedRadioButtonId) {
+            binding.rbTcp.id -> Protocol.TCP
+            binding.rbUdp.id -> Protocol.UDP
+            else -> throw IllegalArgumentException("Unknown id ${binding.rgProtocol.checkedRadioButtonId}")
         }
     }
 

@@ -34,6 +34,19 @@ enum class PacketType {
                 8 -> SUSPEND
                 else -> throw IllegalArgumentException("Unexpected argument $b")
             }
+
+        fun fromByte(b: Int): PacketType =
+            when (b) {
+                1 -> PING
+                2 -> PING_ANSWER
+                3 -> DATA
+                4 -> SYS
+                5 -> CONNECT
+                6 -> CONNECT_ANSWER
+                7 -> DISCONNECT
+                8 -> SUSPEND
+                else -> throw IllegalArgumentException("Unexpected argument $b")
+            }
     }
 
     fun toByte(): Byte =

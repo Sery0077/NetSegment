@@ -1,4 +1,4 @@
-package sery.vlasenko.netsegment.domain.socket_handlers
+package sery.vlasenko.netsegment.domain.socket_handlers.server
 
 import java.net.ServerSocket
 import java.net.Socket
@@ -9,7 +9,6 @@ class ConnectionHandler(
     private val onConnectionAdd: (socket: Socket) -> Unit,
     private val onClose: () -> Unit = {}
 ): Thread() {
-
     init {
         isDaemon = true
     }
