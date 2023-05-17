@@ -7,6 +7,12 @@ abstract class Packet {
     companion object {
         @JvmStatic
         protected val headerByte: Byte = 99
+
+        @JvmStatic
+        protected val HEADER_SIZE = 1
+
+        @JvmStatic
+        protected val PACKET_TYPE_SIZE = 1
     }
 
     abstract fun send(): ByteArray
@@ -17,7 +23,6 @@ abstract class Packet {
 
     interface Factory {
         val arraySize: Int
-
         fun fromByteArray(byteArray: ByteArray): Packet
     }
 }

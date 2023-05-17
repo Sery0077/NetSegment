@@ -1,63 +1,81 @@
-package sery.vlasenko.netsegment.domain.socket_handlers.client
+package sery.vlasenko.netsegment.domain.socket_handlers.server
 
-import okio.IOException
 import sery.vlasenko.netsegment.domain.packet.PacketHandler
 import sery.vlasenko.netsegment.model.test.Packet
+import sery.vlasenko.netsegment.model.test.PacketData
 import sery.vlasenko.netsegment.utils.PacketBuilder
 import sery.vlasenko.netsegment.utils.PacketType
+import sery.vlasenko.netsegment.utils.TimeConst
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
-import java.net.SocketException
+import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 
-class ClientTcpHandler(
+class TestHandler(
     private val socket: Socket,
     var onPacketReceived: (packet: Packet) -> Unit = {},
     var onUnknownPacketType: (packetType: PacketType) -> Unit = {},
     val onClose: () -> Unit = {},
 ) : Thread() {
 
-    companion object {
-        private val TAG = ClientTcpHandler::class.java.simpleName
-    }
-
     private val input: InputStream = socket.getInputStream()
     private val output: OutputStream = socket.getOutputStream()
 
-    private var isWorking = AtomicBoolean(true)
+    companion object TestHandler {
+        private val TAG = PingHandler::class.java.simpleName
+    }
 
     init {
         isDaemon = true
     }
 
+    val isWorking = AtomicBoolean(true)
+
     override fun run() {
-        socket.soTimeout = 0
+        socket.soTimeout = TimeConst.PING_TIMEOUT
 
         while (isWorking.get()) {
             try {
-                val c = input.read()
+                output.write(PacketBuilder.getPacketData(1000).send())
+
+                val c: Int = input.read()
                 val firstByte = input.read()
 
                 if (c == PacketBuilder.PACKET_HEADER) {
-                    PacketHandler(socket).handlePacket(true, firstByte,
-                        onPacketReceived = {
-                            onPacketReceived.invoke(it)
+                    PacketHandler(socket).handlePacket(false, firstByte,
+                        onPacketReceived = { packet ->
+                            (packet as? PacketData)?.let {
+                                println("fefe ping = ${Calendar.getInstance().timeInMillis - it.time}")
+                                onPacketReceived.invoke(it)
+                            }
                         },
                         onUnknownPacket = {
                             onUnknownPacketType.invoke(it)
                         }
                     )
                 } else if (c == -1) {
+                    isWorking.set(false)
                     onClose.invoke()
-//                    onUnknownPacketType.invoke(PacketType.fromByte(firstByte))
                 }
+
             } catch (e: IOException) {
+//                    closeSocket()
                 println(TAG + e.message)
-//                onClose.invoke()
-            } catch (e: SocketException) {
+            } catch (e: IllegalArgumentException) {
                 println(TAG + e.message)
             }
+
+            trySleep()
+        }
+    }
+
+    private fun trySleep() {
+        try {
+            sleep(TimeConst.PING_DELAY)
+        } catch (e: InterruptedException) {
+            currentThread().interrupt()
         }
     }
 

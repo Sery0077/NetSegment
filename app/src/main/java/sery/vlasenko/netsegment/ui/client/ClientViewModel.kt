@@ -91,7 +91,6 @@ class ClientViewModel : BaseRXViewModel() {
                 _uiState.value = UiState.SocketOpened
 
                 conn = TcpConnection(socket, getHandler(socket)).apply {
-                    this.setTimeout(0)
                     handler?.start()
                 }
             }

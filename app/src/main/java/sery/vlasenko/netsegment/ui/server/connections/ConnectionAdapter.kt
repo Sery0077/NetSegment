@@ -78,11 +78,13 @@ class ConnectionAdapter(
 
             val ping = conn.ping
 
-            tvPing.text = if (ping > TimeConst.PING_TIMEOUT) {
-                itemView.context.getString(R.string.ping_pattern, "-")
-            } else {
-                itemView.context.getString(R.string.ping_pattern, conn.ping.toString())
-            }
+//            tvPing.text = if (ping > TimeConst.PING_TIMEOUT) {
+//                itemView.context.getString(R.string.ping_pattern, "-")
+//            } else {
+//                itemView.context.getString(R.string.ping_pattern, conn.ping.toString())
+//            }
+
+            tvPing.text = itemView.context.getString(R.string.ping_pattern, conn.ping.toString())
 
             with(tvProtocol) {
                 when (conn.protocol) {

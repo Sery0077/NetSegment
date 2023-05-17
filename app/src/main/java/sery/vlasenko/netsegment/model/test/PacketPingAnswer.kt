@@ -6,16 +6,16 @@ import sery.vlasenko.netsegment.utils.toByte
 import java.nio.ByteBuffer
 import java.util.*
 
-data class PacketPing(
+data class PacketPingAnswer(
     val time: Long = Calendar.getInstance().timeInMillis,
-    private val isAnswer: Boolean = false,
+    private val isAnswer: Boolean = true,
 ) : Packet() {
 
     override fun send(): ByteArray {
-        val buffer = ByteBuffer.allocate(HEADER_SIZE + PACKET_TYPE_SIZE + IS_ANSWER_SIZE + TIME_SIZE)
+        val buffer = ByteBuffer.allocate(arraySize + 1)
         addHeader(buffer)
 
-        buffer.put(PacketType.PING.toByte())
+        buffer.put(PacketType.PING_ANSWER.toByte())
         buffer.put(isAnswer.toByte())
         buffer.putLong(time)
 
@@ -23,18 +23,15 @@ data class PacketPing(
     }
 
     companion object: Factory {
-        private const val IS_ANSWER_SIZE = 1
-        private const val TIME_SIZE = 8
-
         override val arraySize: Int
-            get() = PACKET_TYPE_SIZE + IS_ANSWER_SIZE + TIME_SIZE
+            get() = 10
 
-        override fun fromByteArray(byteArray: ByteArray): PacketPing {
+        override fun fromByteArray(byteArray: ByteArray): PacketPingAnswer {
             val b = ByteBuffer.wrap(byteArray)
 
-            return PacketPing(
-                isAnswer = Boolean.Companion.fromByte(b.get()),
-                time = b.long,
+            return PacketPingAnswer(
+                isAnswer = Boolean.Companion.fromByte(b.get(0)),
+                time = b.getLong(1),
             )
         }
     }

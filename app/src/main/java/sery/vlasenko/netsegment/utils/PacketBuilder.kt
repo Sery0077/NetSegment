@@ -1,13 +1,34 @@
 package sery.vlasenko.netsegment.utils
 
+import sery.vlasenko.netsegment.model.test.PacketData
 import sery.vlasenko.netsegment.model.test.PacketPing
+import sery.vlasenko.netsegment.model.test.PacketPingAnswer
+import kotlin.random.Random
 
 object PacketBuilder {
 
     const val PACKET_HEADER = 99
     fun getPacketPing(): PacketPing = PacketPing()
-    fun getPacketPingAnswer(t: Long): PacketPing = PacketPing(time = t, isAnswer = true)
+    fun getPacketPingAnswer(t: Long): PacketPingAnswer = PacketPingAnswer(time = t, isAnswer = true)
 
+    fun getPacketData(dataSize: Int = 50, data: ByteArray = ByteArray(dataSize)): PacketData {
+        Random.nextBytes(data)
+
+        return PacketData(
+            dataSize = dataSize,
+            data = data
+        )
+    }
+
+    fun getPacketData(time: Long, dataSize: Int = 50, data: ByteArray = ByteArray(dataSize)): PacketData {
+        Random.nextBytes(data)
+
+        return PacketData(
+            time = time,
+            dataSize = dataSize,
+            data = data
+        )
+    }
 
 }
 

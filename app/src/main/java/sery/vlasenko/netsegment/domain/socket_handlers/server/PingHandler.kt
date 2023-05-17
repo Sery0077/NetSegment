@@ -1,6 +1,7 @@
 package sery.vlasenko.netsegment.domain.socket_handlers.server
 
 import okio.IOException
+import sery.vlasenko.netsegment.domain.packet.PacketHandler
 import sery.vlasenko.netsegment.model.test.PacketPing
 import sery.vlasenko.netsegment.model.test.PacketPingAnswer
 import sery.vlasenko.netsegment.utils.PacketBuilder
@@ -14,94 +15,66 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class PingHandler(
     private val socket: Socket,
-    private var input: InputStream = socket.getInputStream(),
-    private val output: OutputStream = socket.getOutputStream(),
     var onPingGet: (ping: Long) -> Unit = {},
     var onUnknownPacketType: (packetType: PacketType) -> Unit = {},
     val onClose: () -> Unit = {},
 ) : Thread() {
-    init {
-        isDaemon = true
-    }
+
+    private val input: InputStream = socket.getInputStream()
+    private val output: OutputStream = socket.getOutputStream()
 
     companion object {
-        const val TAG = "CloseHandler"
+        private val TAG = PingHandler::class.java.simpleName
+    }
+
+    init {
+        isDaemon = true
     }
 
     val isWorking = AtomicBoolean(true)
     override fun run() {
         socket.soTimeout = TimeConst.PING_TIMEOUT
 
-        synchronized(socket) {
-            while (isWorking.get()) {
-                try {
-                    output.write(PacketBuilder.getPacketPing().send())
+        while (isWorking.get()) {
+            try {
+                output.write(PacketBuilder.getPacketPing().send())
 
-                    val count: Int = input.read()
+                val c: Int = input.read()
+                val firstByte = input.read()
 
-                    when (count) {
-                        -1 -> {
-                            onClose.invoke()
-                            closeSocket()
-                            break
-                        }
-                        PacketBuilder.PACKET_HEADER -> {
-                            val packetType = PacketType.fromByte(input.read().toByte())
-
-                            when (packetType) {
-                                PacketType.PING_ANSWER -> handlePingAnswerPacket()
-                                PacketType.PING -> handlePingPacket()
-                                else -> onUnknownPacketType(packetType)
+                if (c == PacketBuilder.PACKET_HEADER) {
+                    PacketHandler(socket).handlePacket(false, firstByte,
+                        onPacketReceived = { packet ->
+                            (packet as? PacketPingAnswer)?.let {
+                                val ping = Calendar.getInstance().timeInMillis - it.time
+                                onPingGet(ping)
                             }
+                        },
+                        onUnknownPacket = {
+                            onUnknownPacketType.invoke(it)
                         }
-                    }
-
-                    trySleep()
-                } catch (e: IOException) {
-//                    closeSocket()
-                    println(TAG + e.message)
-                } catch (e: IllegalArgumentException) {
-                    println(TAG + e.message)
+                    )
+                } else if (c == -1) {
+                    isWorking.set(false)
+                    onClose.invoke()
                 }
+            } catch (e: IOException) {
+//                    closeSocket()
+                println(TAG + e.message)
+            } catch (e: IllegalArgumentException) {
+                println(TAG + e.message)
             }
+
+            trySleep()
         }
-        println(TAG + "Stopped")
     }
+
     private fun trySleep() {
         try {
             sleep(TimeConst.PING_DELAY)
         } catch (e: InterruptedException) {
             currentThread().interrupt()
         }
-    }
-
-    private fun handlePingPacket() {
-        val byteArray = ByteArray(PacketPing.arraySize)
-
-        input.read(byteArray)
-
-        val receivedPacket = PacketPing.fromByteArray(byteArray)
-        val ping = Calendar.getInstance().timeInMillis - receivedPacket.time
-
-        onPingGet.invoke(ping)
-    }
-
-    private fun handlePingAnswerPacket() {
-        val byteArray = ByteArray(PacketPing.arraySize)
-
-        input.read(byteArray)
-
-        val receivedPacket = PacketPingAnswer.fromByteArray(byteArray)
-        val ping = Calendar.getInstance().timeInMillis - receivedPacket.time
-
-        println(TAG + ping.toString())
-
-        onPingGet.invoke(ping)
-    }
-
-    private fun closeSocket() {
-        isWorking.set(false)
-        socket.close()
     }
 
     override fun interrupt() {

@@ -13,15 +13,20 @@ import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
 import sery.vlasenko.netsegment.domain.socket_handlers.server.ConnectionHandler
 import sery.vlasenko.netsegment.domain.socket_handlers.server.PingHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.server.TestHandler
 import sery.vlasenko.netsegment.model.LogItem
 import sery.vlasenko.netsegment.model.LogType
 import sery.vlasenko.netsegment.model.connections.Connection
 import sery.vlasenko.netsegment.model.connections.TcpConnection
+import sery.vlasenko.netsegment.model.test.Packet
+import sery.vlasenko.netsegment.model.test.PacketData
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.service.MyHandler
+import sery.vlasenko.netsegment.utils.PacketType
 import sery.vlasenko.netsegment.utils.ResourceProvider
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.Calendar
 
 class ServerViewModel : BaseRXViewModel() {
 
@@ -97,7 +102,6 @@ class ServerViewModel : BaseRXViewModel() {
                 connectionHandler = ConnectionHandler(socket,
                     onConnectionAdd = { socket ->
                         onConnectionAdd(socket)
-                        println("fefe add")
                     },
                     onClose = {
                         clearConnections()
@@ -117,19 +121,26 @@ class ServerViewModel : BaseRXViewModel() {
     }
 
     private fun onConnectionAdd(socket: Socket) {
+        val conn = TcpConnection(socket, getPingHandler(socket)).apply {
+            handler?.start()
+        }
+        connections.add(conn)
+
+        _recyclerState.onNext(RecyclerState.ConnAdd(connections.lastIndex))
+    }
+
+    private fun getPingHandler(socket: Socket): PingHandler {
         val index = connections.lastIndex + 1
 
-        val conn = TcpConnection(socket, null)
-
-        val handler = PingHandler(socket,
+        return PingHandler(socket,
             onPingGet = {
                 connections[index].ping = it
-//                        connections[index].logs.add(LogItem(message = "Ping get"))
+                connections[index].logs.add(LogItem(message = "Ping get"))
                 _recyclerState.onNext(RecyclerState.ConnChanged(index, it))
-//                        _recyclerState.onNext(RecyclerState.LogAdd(index, LogItem(message = "Ping get")))
+                _recyclerState.onNext(RecyclerState.LogAdd(index, LogItem(message = "Ping get")))
             },
             onUnknownPacketType = {
-                conn.handler?.interrupt()
+//                conn.handler?.interrupt()
                 _recyclerState.onNext(
                     RecyclerState.LogAdd(
                         index,
@@ -138,16 +149,10 @@ class ServerViewModel : BaseRXViewModel() {
                 )
             },
             onClose = {
-                connections.remove(conn)
+                connections.removeAt(index)
                 _recyclerState.onNext(RecyclerState.ConnRemove(index))
             }
         )
-
-        conn.handler = handler
-        connections.add(conn)
-        conn.handler?.start()
-
-        _recyclerState.onNext(RecyclerState.ConnAdd(connections.lastIndex))
     }
 
     private fun closeSocket() {
@@ -156,6 +161,8 @@ class ServerViewModel : BaseRXViewModel() {
 
         connectionHandler = null
         socket = null
+
+        clearConnections()
     }
 
     private fun clearConnections() {
@@ -175,21 +182,47 @@ class ServerViewModel : BaseRXViewModel() {
 
     fun onStartTestClick(pos: Int) {
         val conn = connections[pos]
-
-        println("StartTestClick" + Thread.currentThread().id)
-
         conn.handler?.interrupt()
+        conn.handler = null
 
-        if (conn is TcpConnection) {
-            val my = MyHandler(conn.socket, conn.input, conn.output) {}
+        val testHandler = conn.socket
+            ?.let { socket ->
+                getTestHandler(
+                    socket as Socket,
+                    onPacketReceived = { packet ->
+                        (packet as? PacketData)?.let {
+                            conn.ping = Calendar.getInstance().timeInMillis - it.time
+                            conn.logs.add(LogItem(message = "Ping get ${it.dataSize}"))
+                            _recyclerState.onNext(RecyclerState.ConnChanged(pos, conn.ping))
+                            _recyclerState.onNext(RecyclerState.LogAdd(pos, LogItem(message = "Ping get")))
+                        }
+                    },
+                    onUnknownPacketType = {
 
-            my.start()
+                    },
+                    onClose = {
 
-            Thread {
-                conn.handler = PingHandler(conn.socket, onClose = {}, onPingGet = {})
-                conn.handler?.start()
-            }.start()
-        }
+                    }
+                )
+            }
+            ?: return
+
+        conn.handler = testHandler
+        conn.handler?.start()
+    }
+
+    private fun getTestHandler(
+        socket: Socket,
+        onPacketReceived: (packet: Packet) -> Unit,
+        onUnknownPacketType: (packetType: PacketType) -> Unit,
+        onClose: () -> Unit,
+    ): TestHandler {
+        return TestHandler(
+            socket = socket,
+            onPacketReceived = onPacketReceived,
+            onUnknownPacketType = onUnknownPacketType,
+            onClose = onClose
+        )
     }
 
     private fun <T> MutableSharedFlow<T>.onNext(value: T) {
