@@ -1,15 +1,15 @@
 package sery.vlasenko.netsegment.model.test
 
-import sery.vlasenko.netsegment.utils.PacketBuilder
+import sery.vlasenko.netsegment.utils.PacketFactory
 import sery.vlasenko.netsegment.utils.PacketType
 import java.nio.ByteBuffer
 import java.util.*
 
 class PacketData(
-    var time: Long = Calendar.getInstance().timeInMillis,
+    time: Long = Calendar.getInstance().timeInMillis,
     val dataSize: Int = 50,
     val data: ByteArray,
-): Packet() {
+): Packet(time) {
 
     override fun send(): ByteArray {
         val buffer = ByteBuffer.allocate(HEADER_SIZE + PACKET_TYPE_SIZE + TIME_SIZE + Int.SIZE_BYTES + dataSize)
@@ -71,7 +71,7 @@ class PacketData(
 
 fun main() {
     val s = 10
-    val packet1 = PacketBuilder.getPacketData(s)
+    val packet1 = PacketFactory.getPacketData(s)
 
     val packetByte = packet1.send()
 

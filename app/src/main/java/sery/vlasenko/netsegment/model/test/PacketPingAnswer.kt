@@ -6,10 +6,10 @@ import sery.vlasenko.netsegment.utils.toByte
 import java.nio.ByteBuffer
 import java.util.*
 
-data class PacketPingAnswer(
-    val time: Long = Calendar.getInstance().timeInMillis,
+class PacketPingAnswer(
+    time: Long = Calendar.getInstance().timeInMillis,
     private val isAnswer: Boolean = true,
-) : Packet() {
+) : Packet(time) {
 
     override fun send(): ByteArray {
         val buffer = ByteBuffer.allocate(arraySize + 1)

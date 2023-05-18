@@ -3,7 +3,7 @@ package sery.vlasenko.netsegment.domain.socket_handlers.client
 import okio.IOException
 import sery.vlasenko.netsegment.domain.packet.PacketHandler
 import sery.vlasenko.netsegment.model.test.Packet
-import sery.vlasenko.netsegment.utils.PacketBuilder
+import sery.vlasenko.netsegment.utils.PacketFactory
 import sery.vlasenko.netsegment.utils.PacketType
 import java.io.InputStream
 import java.io.OutputStream
@@ -39,7 +39,7 @@ class ClientTcpHandler(
                 val c = input.read()
                 val firstByte = input.read()
 
-                if (c == PacketBuilder.PACKET_HEADER) {
+                if (c == PacketFactory.PACKET_HEADER) {
                     PacketHandler(socket).handlePacket(true, firstByte,
                         onPacketReceived = {
                             onPacketReceived.invoke(it)

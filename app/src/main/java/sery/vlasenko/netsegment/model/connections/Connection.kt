@@ -1,7 +1,5 @@
 package sery.vlasenko.netsegment.model.connections
 
-import sery.vlasenko.netsegment.model.LogItem
-
 abstract class Connection<T>(val socket: T, var handler: Thread?) {
     abstract val ip: String?
     abstract val port: Int
@@ -11,9 +9,6 @@ abstract class Connection<T>(val socket: T, var handler: Thread?) {
     abstract val protocol: Protocol
 
     var state = ConnectionState.IDLE
-    var ping: Long = 0L
-
-    var logs: MutableList<LogItem> = mutableListOf()
 
     abstract fun close()
 

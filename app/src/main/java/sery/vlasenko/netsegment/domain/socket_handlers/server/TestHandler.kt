@@ -1,27 +1,34 @@
 package sery.vlasenko.netsegment.domain.socket_handlers.server
 
+import sery.vlasenko.netsegment.domain.TestResultHandler
 import sery.vlasenko.netsegment.domain.packet.PacketHandler
 import sery.vlasenko.netsegment.model.test.Packet
-import sery.vlasenko.netsegment.model.test.PacketData
-import sery.vlasenko.netsegment.utils.PacketBuilder
+import sery.vlasenko.netsegment.model.test.TestResult
+import sery.vlasenko.netsegment.model.testscripts.TestItem
+import sery.vlasenko.netsegment.utils.PacketFactory
 import sery.vlasenko.netsegment.utils.PacketType
 import sery.vlasenko.netsegment.utils.TimeConst
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
-import java.util.*
-import java.util.concurrent.atomic.AtomicBoolean
+import java.net.SocketTimeoutException
 
 class TestHandler(
     private val socket: Socket,
-    var onPacketReceived: (packet: Packet) -> Unit = {},
-    var onUnknownPacketType: (packetType: PacketType) -> Unit = {},
+    private val script: List<TestItem>,
+    val onPacketReceived: (packet: Packet) -> Unit = {},
+    val onUnknownPacketType: (packetType: PacketType) -> Unit = {},
     val onClose: () -> Unit = {},
+    val onTestEnd: (testResult: TestResult) -> Unit = {},
 ) : Thread() {
 
     private val input: InputStream = socket.getInputStream()
     private val output: OutputStream = socket.getOutputStream()
+
+    private val packetHandler: PacketHandler = PacketHandler(socket)
+
+    private val testResultHandler = TestResultHandler()
 
     companion object TestHandler {
         private val TAG = PingHandler::class.java.simpleName
@@ -31,57 +38,59 @@ class TestHandler(
         isDaemon = true
     }
 
-    val isWorking = AtomicBoolean(true)
-
     override fun run() {
         socket.soTimeout = TimeConst.PING_TIMEOUT
 
-        while (isWorking.get()) {
-            try {
-                output.write(PacketBuilder.getPacketData(1000).send())
+        script.forEach { testItem ->
+            socket.soTimeout = testItem.timeout
+            repeat(testItem.packetCount) {
+                val sentPacket = PacketFactory.getPacket(testItem.packetType)
 
-                val c: Int = input.read()
-                val firstByte = input.read()
+                try {
+                    output.write(sentPacket.send())
 
-                if (c == PacketBuilder.PACKET_HEADER) {
-                    PacketHandler(socket).handlePacket(false, firstByte,
-                        onPacketReceived = { packet ->
-                            (packet as? PacketData)?.let {
-                                println("fefe ping = ${Calendar.getInstance().timeInMillis - it.time}")
-                                onPacketReceived.invoke(it)
+                    val c: Int = input.read()
+                    val firstByte = input.read()
+
+                    if (c == PacketFactory.PACKET_HEADER) {
+                        packetHandler.handlePacket(
+                            isNeedToResendPacket = false,
+                            firstByte = firstByte,
+                            onPacketReceived = { receivedPacket ->
+                                testResultHandler.handlePackets(sentPacket, receivedPacket)
+                                onPacketReceived.invoke(receivedPacket)
+                            },
+                            onUnknownPacket = { packetType ->
+                                onUnknownPacketType.invoke(packetType)
                             }
-                        },
-                        onUnknownPacket = {
-                            onUnknownPacketType.invoke(it)
-                        }
-                    )
-                } else if (c == -1) {
-                    isWorking.set(false)
-                    onClose.invoke()
+                        )
+                    } else if (c == -1) {
+                        onClose.invoke()
+                    }
+
+                } catch (e: SocketTimeoutException) {
+                    testResultHandler.handlePackets(sentPacket, null)
+                    println(TAG + e.message)
+                } catch (e: IOException) {
+//                    closeSocket()
+                    println(TAG + e.message)
+                } catch (e: IllegalArgumentException) {
+                    println(TAG + e.message)
                 }
 
-            } catch (e: IOException) {
-//                    closeSocket()
-                println(TAG + e.message)
-            } catch (e: IllegalArgumentException) {
-                println(TAG + e.message)
+                trySleep(testItem.delay)
             }
-
-            trySleep()
         }
+
+        onTestEnd.invoke(testResultHandler.getResult())
     }
 
-    private fun trySleep() {
+    private fun trySleep(time: Long) {
         try {
-            sleep(TimeConst.PING_DELAY)
+            sleep(time)
         } catch (e: InterruptedException) {
             currentThread().interrupt()
         }
-    }
-
-    override fun interrupt() {
-        isWorking.set(false)
-        super.interrupt()
     }
 
 }

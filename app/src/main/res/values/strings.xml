@@ -28,4 +28,6 @@
 
     <string name="ping_pattern">%s мс</string>
     <string name="connect_error">Не удалось подключиться к %s</string>
+    <string name="stop_test">Stop test</string>
+    <string name="show_result">Result</string>
 </resources>

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -18,10 +17,10 @@
         android:textAllCaps="true"
         android:textColor="@color/white"
         android:textSize="16sp"
-        app:layout_constraintBottom_toBottomOf="@id/barrier"
+        app:layout_constraintBottom_toBottomOf="@id/barrier1"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        tools:text="UdP" />
+        tools:text="UDP" />
 
     <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/icon"
@@ -29,8 +28,10 @@
         android:layout_height="45dp"
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
         android:src="@drawable/ic_smartphone"
         app:layout_constraintStart_toEndOf="@id/item_conn_tv_protocol"
+        app:layout_constraintBottom_toBottomOf="@id/barrier1"
         app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.appcompat.widget.AppCompatTextView
@@ -77,30 +78,62 @@
         android:id="@+id/item_conn_tv_ping"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="4dp"
-        app:layout_constraintBottom_toBottomOf="@id/item_conn_btn_start_test"
-        app:layout_constraintEnd_toStartOf="@+id/item_conn_btn_start_test"
-        app:layout_constraintTop_toTopOf="@id/item_conn_btn_start_test"
+        android:layout_marginEnd="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="@id/barrier1"
+        app:layout_constraintTop_toTopOf="parent"
         tools:text="52 мс" />
+
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/barrier1"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        app:barrierDirection="bottom"
+        app:constraint_referenced_ids="item_conn_tv_protocol" />
 
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/item_conn_btn_start_test"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="35dp"
         android:layout_marginTop="8dp"
-        android:layout_marginEnd="6dp"
-        android:backgroundTint="@color/teal_700"
+        android:background="@drawable/button_teal_selector"
         android:text="@string/start_test"
         android:textColor="@color/white"
+        app:layout_constraintTop_toBottomOf="@id/barrier1"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/item_conn_btn_stop_test" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/item_conn_btn_stop_test"
+        android:layout_width="wrap_content"
+        android:layout_height="35dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/button_teal_selector"
+        android:text="@string/stop_test"
+        android:textColor="@color/white"
+        app:layout_constraintTop_toBottomOf="@id/barrier1"
+        app:layout_constraintStart_toEndOf="@id/item_conn_btn_start_test"
+        app:layout_constraintEnd_toStartOf="@id/item_conn_btn_show_result" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/item_conn_btn_show_result"
+        android:layout_width="wrap_content"
+        android:layout_height="35dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/button_teal_selector"
+        android:text="@string/show_result"
+        android:textColor="@color/white"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintStart_toEndOf="@id/item_conn_btn_stop_test"
+        app:layout_constraintTop_toBottomOf="@id/barrier1" />
 
     <androidx.constraintlayout.widget.Barrier
-        android:id="@+id/barrier"
+        android:id="@+id/barrier2"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:barrierDirection="bottom"
-        app:constraint_referenced_ids="item_conn_btn_start_test" />
+        app:constraint_referenced_ids="item_conn_btn_start_test, item_conn_btn_stop_test, item_conn_btn_show_result" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/item_conn_rv_logs"
@@ -110,7 +143,7 @@
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/barrier"
+        app:layout_constraintTop_toBottomOf="@id/barrier2"
         tools:itemCount="10" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

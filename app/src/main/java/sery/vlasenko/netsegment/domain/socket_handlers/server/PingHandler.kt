@@ -2,9 +2,8 @@ package sery.vlasenko.netsegment.domain.socket_handlers.server
 
 import okio.IOException
 import sery.vlasenko.netsegment.domain.packet.PacketHandler
-import sery.vlasenko.netsegment.model.test.PacketPing
 import sery.vlasenko.netsegment.model.test.PacketPingAnswer
-import sery.vlasenko.netsegment.utils.PacketBuilder
+import sery.vlasenko.netsegment.utils.PacketFactory
 import sery.vlasenko.netsegment.utils.PacketType
 import sery.vlasenko.netsegment.utils.TimeConst
 import java.io.InputStream
@@ -37,12 +36,12 @@ class PingHandler(
 
         while (isWorking.get()) {
             try {
-                output.write(PacketBuilder.getPacketPing().send())
+                output.write(PacketFactory.getPacketPing().send())
 
                 val c: Int = input.read()
                 val firstByte = input.read()
 
-                if (c == PacketBuilder.PACKET_HEADER) {
+                if (c == PacketFactory.PACKET_HEADER) {
                     PacketHandler(socket).handlePacket(false, firstByte,
                         onPacketReceived = { packet ->
                             (packet as? PacketPingAnswer)?.let {

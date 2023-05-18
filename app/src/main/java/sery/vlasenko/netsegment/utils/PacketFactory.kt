@@ -1,17 +1,41 @@
 package sery.vlasenko.netsegment.utils
 
+import sery.vlasenko.netsegment.model.test.Packet
 import sery.vlasenko.netsegment.model.test.PacketData
 import sery.vlasenko.netsegment.model.test.PacketPing
 import sery.vlasenko.netsegment.model.test.PacketPingAnswer
 import kotlin.random.Random
 
-object PacketBuilder {
+object PacketFactory {
 
     const val PACKET_HEADER = 99
+
+    private const val DEFAULT_DATA_SIZE = 50
+
+    fun getPacket(
+        packetType: PacketType,
+        time: Long? = null,
+        dataSize: Int = DEFAULT_DATA_SIZE,
+    ): Packet {
+        return when (packetType) {
+            PacketType.PING -> getPacketPing()
+            PacketType.PING_ANSWER -> getPacketPingAnswer(time)
+            PacketType.DATA -> getPacketData(dataSize)
+            PacketType.SYS -> TODO()
+            PacketType.CONNECT -> TODO()
+            PacketType.CONNECT_ANSWER -> TODO()
+            PacketType.DISCONNECT -> TODO()
+            PacketType.SUSPEND -> TODO()
+        }
+    }
+
     fun getPacketPing(): PacketPing = PacketPing()
-    fun getPacketPingAnswer(t: Long): PacketPingAnswer = PacketPingAnswer(time = t, isAnswer = true)
+    fun getPacketPingAnswer(t: Long?): PacketPingAnswer {
+        require(t != null) { throw IllegalArgumentException("Time must not be null") }
+        return PacketPingAnswer(time = t, isAnswer = true)
+    }
 
-    fun getPacketData(dataSize: Int = 50, data: ByteArray = ByteArray(dataSize)): PacketData {
+    fun getPacketData(dataSize: Int, data: ByteArray = ByteArray(dataSize)): PacketData {
         Random.nextBytes(data)
 
         return PacketData(
@@ -20,16 +44,19 @@ object PacketBuilder {
         )
     }
 
-    fun getPacketData(time: Long, dataSize: Int = 50, data: ByteArray = ByteArray(dataSize)): PacketData {
-        Random.nextBytes(data)
-
-        return PacketData(
-            time = time,
-            dataSize = dataSize,
-            data = data
-        )
-    }
-
+//    fun getPacketData(
+//        time: Long?,
+//        dataSize: Int = 50,
+//        data: ByteArray = ByteArray(dataSize)
+//    ): PacketData {
+//        Random.nextBytes(data)
+//
+//        return PacketData(
+//            time = time,
+//            dataSize = dataSize,
+//            data = data
+//        )
+//    }
 }
 
 enum class PacketType {

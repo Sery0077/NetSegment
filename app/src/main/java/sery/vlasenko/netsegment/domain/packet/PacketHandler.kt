@@ -4,7 +4,7 @@ import sery.vlasenko.netsegment.model.test.Packet
 import sery.vlasenko.netsegment.model.test.PacketData
 import sery.vlasenko.netsegment.model.test.PacketPing
 import sery.vlasenko.netsegment.model.test.PacketPingAnswer
-import sery.vlasenko.netsegment.utils.PacketBuilder
+import sery.vlasenko.netsegment.utils.PacketFactory
 import sery.vlasenko.netsegment.utils.PacketType
 import java.io.DataInputStream
 import java.io.InputStream
@@ -14,9 +14,10 @@ import java.nio.ByteBuffer
 
 class PacketHandler(
     private val socket: Socket,
-    private val input: InputStream = socket.getInputStream(),
-    private val output: OutputStream = socket.getOutputStream(),
 ) {
+
+    private val input: InputStream = socket.getInputStream()
+    private val output: OutputStream = socket.getOutputStream()
 
     fun handlePacket(
         isNeedToResendPacket: Boolean = false,
@@ -50,7 +51,7 @@ class PacketHandler(
 
         val receivedPacket = PacketPing.fromByteArray(byteArray)
 
-        output.write(PacketBuilder.getPacketPingAnswer(receivedPacket.time).send())
+        output.write(PacketFactory.getPacketPingAnswer(receivedPacket.time).send())
 
         onPacketReceived.invoke(receivedPacket)
     }

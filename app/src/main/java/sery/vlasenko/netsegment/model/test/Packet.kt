@@ -2,7 +2,9 @@ package sery.vlasenko.netsegment.model.test
 
 import java.nio.ByteBuffer
 
-abstract class Packet {
+abstract class Packet(
+    var time: Long
+) {
 
     companion object {
         @JvmStatic

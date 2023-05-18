@@ -20,13 +20,16 @@ import sery.vlasenko.netsegment.model.connections.Connection
 import sery.vlasenko.netsegment.model.connections.TcpConnection
 import sery.vlasenko.netsegment.model.test.Packet
 import sery.vlasenko.netsegment.model.test.PacketData
+import sery.vlasenko.netsegment.model.test.TestResult
+import sery.vlasenko.netsegment.model.testscripts.TestItem
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
-import sery.vlasenko.netsegment.ui.server.service.MyHandler
+import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
 import sery.vlasenko.netsegment.utils.PacketType
 import sery.vlasenko.netsegment.utils.ResourceProvider
+import sery.vlasenko.netsegment.utils.Scripts
 import java.net.ServerSocket
 import java.net.Socket
-import java.util.Calendar
+import java.util.*
 
 class ServerViewModel : BaseRXViewModel() {
 
@@ -34,10 +37,10 @@ class ServerViewModel : BaseRXViewModel() {
     val ipState: LiveData<ServerUiState>
         get() = _ipState
 
-    private val _recyclerState: MutableSharedFlow<RecyclerState> =
+    private val _connRecyclerState: MutableSharedFlow<ConnRecyclerState> =
         MutableSharedFlow(extraBufferCapacity = 20)
-    val recyclerState: SharedFlow<RecyclerState>
-        get() = _recyclerState
+    val connRecyclerState: SharedFlow<ConnRecyclerState>
+        get() = _connRecyclerState
 
     private val _uiState: MutableLiveData<UiState> = MutableLiveData(UiState.SocketClosed)
     val uiState: LiveData<UiState>
@@ -52,7 +55,16 @@ class ServerViewModel : BaseRXViewModel() {
 
     private var mPort = 4444
 
-    val connections: MutableList<Connection<*>> = mutableListOf()
+    private val testResults: HashMap<Connection<*>, TestResult?> = hashMapOf()
+    private val connections: MutableList<Connection<*>> = mutableListOf()
+
+    val connectionItems =  object: MutableList<ConnectionItem> by ArrayList() {
+        override fun add(element: ConnectionItem): Boolean {
+            add(lastIndex + 1, element)
+            _connRecyclerState.onNext(ConnRecyclerState.ConnAdd(lastIndex))
+            return true
+        }
+    }
 
     init {
 //        getIp()
@@ -74,17 +86,17 @@ class ServerViewModel : BaseRXViewModel() {
         )
     }
 
-    fun socketOpened(port: String) {
+    private fun socketOpened(port: String) {
         _uiState.value = UiState.SocketOpened
         _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_opened, port))
     }
 
-    fun socketClosed(port: String) {
+    private fun socketClosed(port: String) {
         _uiState.value = UiState.SocketClosed
         _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_closed, port))
     }
 
-    fun isValidPort(port: String): Boolean {
+    private fun isValidPort(port: String): Boolean {
         return port.toIntOrNull() != null
     }
 
@@ -111,12 +123,10 @@ class ServerViewModel : BaseRXViewModel() {
 
                 socketOpened(port)
             } else {
-                _singleEvent.value =
-                    SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
+                _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
             }
         } else {
-            _singleEvent.value =
-                SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
+            _singleEvent.value = SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
         }
     }
 
@@ -125,24 +135,22 @@ class ServerViewModel : BaseRXViewModel() {
             handler?.start()
         }
         connections.add(conn)
+        testResults[conn] = null
 
-        _recyclerState.onNext(RecyclerState.ConnAdd(connections.lastIndex))
+        connectionItems.add(ConnectionItem.of(conn))
     }
 
     private fun getPingHandler(socket: Socket): PingHandler {
         val index = connections.lastIndex + 1
 
         return PingHandler(socket,
-            onPingGet = {
-                connections[index].ping = it
-                connections[index].logs.add(LogItem(message = "Ping get"))
-                _recyclerState.onNext(RecyclerState.ConnChanged(index, it))
-                _recyclerState.onNext(RecyclerState.LogAdd(index, LogItem(message = "Ping get")))
+            onPingGet = { ping ->
+                updateConnectionItem(index, connectionItems[index].copyPingUpdate(ping))
             },
             onUnknownPacketType = {
 //                conn.handler?.interrupt()
-                _recyclerState.onNext(
-                    RecyclerState.LogAdd(
+                _connRecyclerState.onNext(
+                    ConnRecyclerState.LogAdd(
                         index,
                         LogItem(message = "Unknown packet $it", type = LogType.ERROR)
                     )
@@ -150,7 +158,7 @@ class ServerViewModel : BaseRXViewModel() {
             },
             onClose = {
                 connections.removeAt(index)
-                _recyclerState.onNext(RecyclerState.ConnRemove(index))
+                _connRecyclerState.onNext(ConnRecyclerState.ConnRemove(index))
             }
         )
     }
@@ -166,13 +174,13 @@ class ServerViewModel : BaseRXViewModel() {
     }
 
     private fun clearConnections() {
-        connections.forEachIndexed { index, connection ->
+        connections.forEach { connection ->
             connection.handler?.interrupt()
             connection.close()
-
-            _recyclerState.onNext(RecyclerState.ConnRemove(index))
         }
         connections.clear()
+
+        clearConnectionItems()
     }
 
     override fun onCleared() {
@@ -185,23 +193,37 @@ class ServerViewModel : BaseRXViewModel() {
         conn.handler?.interrupt()
         conn.handler = null
 
+        val newConnectionItem = connectionItems[pos].copyStartTest()
+        updateConnectionItemWithLog(
+            index = pos,
+            message = "Test start",
+            connectionItem = newConnectionItem
+        )
+
         val testHandler = conn.socket
             ?.let { socket ->
                 getTestHandler(
                     socket as Socket,
                     onPacketReceived = { packet ->
                         (packet as? PacketData)?.let {
-                            conn.ping = Calendar.getInstance().timeInMillis - it.time
-                            conn.logs.add(LogItem(message = "Ping get ${it.dataSize}"))
-                            _recyclerState.onNext(RecyclerState.ConnChanged(pos, conn.ping))
-                            _recyclerState.onNext(RecyclerState.LogAdd(pos, LogItem(message = "Ping get")))
+                            val ping = Calendar.getInstance().timeInMillis - it.time
+
+                            updateConnectionItem(pos, connectionItems[pos].copyStartTest())
+                            addLogToConnectionItem(pos, "Packet received. Ping $ping. Data size ${it.dataSize}")
                         }
                     },
                     onUnknownPacketType = {
-
+                        addLogToConnectionItem(pos, "Unknown packet", LogType.ERROR)
                     },
                     onClose = {
+                        updateConnectionItem(pos, connectionItems[pos].copyStopTestWithResult())
+                        addLogToConnectionItem(pos, "Test end: client disconnect.")
+                    },
+                    onTestEnd = { testResult ->
+                        testResults[conn] = testResult
 
+                        updateConnectionItem(pos, connectionItems[pos].copyStopTestWithResult())
+                        addLogToConnectionItem(pos, "Test end: success")
                     }
                 )
             }
@@ -213,16 +235,62 @@ class ServerViewModel : BaseRXViewModel() {
 
     private fun getTestHandler(
         socket: Socket,
+        script: List<TestItem> = Scripts.testScript,
         onPacketReceived: (packet: Packet) -> Unit,
         onUnknownPacketType: (packetType: PacketType) -> Unit,
         onClose: () -> Unit,
+        onTestEnd: (testResult: TestResult) -> Unit,
     ): TestHandler {
         return TestHandler(
             socket = socket,
+            script = script,
             onPacketReceived = onPacketReceived,
             onUnknownPacketType = onUnknownPacketType,
-            onClose = onClose
+            onClose = onClose,
+            onTestEnd = onTestEnd
         )
+    }
+
+    private fun clearConnectionItems() {
+        connectionItems.clear()
+        _connRecyclerState.onNext(ConnRecyclerState.ConnClear)
+    }
+
+    private fun updateConnectionItem(index: Int, connectionItem: ConnectionItem) {
+        connectionItems[index] = connectionItem
+        _connRecyclerState.onNext(ConnRecyclerState.ConnChanged(index, connectionItem))
+    }
+
+    private fun updateConnectionItemWithLog(index: Int, message: String, logType: LogType = LogType.MESSAGE, connectionItem: ConnectionItem) {
+        connectionItems[index] = connectionItem
+        connectionItems[index].logs.add(LogItem(message = message, type = logType))
+        _connRecyclerState.onNext(ConnRecyclerState.ConnChanged(index, connectionItem))
+    }
+
+    private fun addLogToConnectionItem(index: Int, message: String, logType: LogType = LogType.MESSAGE) {
+        val log = LogItem(message = message, type = logType)
+        connectionItems[index].logs.add(log)
+        _connRecyclerState.onNext(ConnRecyclerState.LogAdd(index, log))
+    }
+
+    fun onStopTestClick(pos: Int) {
+        val conn = connections[pos]
+
+        if (conn is TcpConnection) {
+            with(conn) {
+                handler?.interrupt()
+                handler = null
+
+                handler = getPingHandler(conn.socket)
+                handler?.start()
+            }
+        } else {
+            // TODO add UdpConnection
+        }
+    }
+
+    fun onResultClick(pos: Int) {
+        TODO("Not yet implemented")
     }
 
     private fun <T> MutableSharedFlow<T>.onNext(value: T) {

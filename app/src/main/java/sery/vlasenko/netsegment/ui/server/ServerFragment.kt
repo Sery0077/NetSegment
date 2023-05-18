@@ -54,20 +54,23 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.recyclerState.collectLatest {
+                viewModel.connRecyclerState.collectLatest {
                     when (it) {
-                        is RecyclerState.ConnAdd -> {
+                        is ConnRecyclerState.ConnAdd -> {
                             connAdapter.notifyItemInserted(it.position)
                         }
-                        is RecyclerState.ConnRemove -> {
+                        is ConnRecyclerState.ConnRemove -> {
                             connAdapter.notifyItemRemoved(it.position)
                         }
-                        is RecyclerState.LogAdd -> {
+                        is ConnRecyclerState.LogAdd -> {
                             connAdapter.notifyItemChanged(it.position, it.logItem)
                             logAdapter.notifyItemInserted(it.position)
                         }
-                        is RecyclerState.ConnChanged -> {
-                            connAdapter.notifyItemChanged(it.position, it.ping)
+                        is ConnRecyclerState.ConnChanged -> {
+                            connAdapter.notifyItemChanged(it.position, it.connectionItem)
+                        }
+                        is ConnRecyclerState.ConnClear -> {
+                            connAdapter.notifyItemRangeRemoved(0, connAdapter.itemCount)
                         }
                     }
                 }
@@ -120,7 +123,7 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
     private fun initView() {
         binding.rvConnections.adapter = connAdapter
         binding.rvConnections.setHasFixedSize(true)
-        connAdapter.submitList(viewModel.connections)
+        connAdapter.submitList(viewModel.connectionItems)
 
         binding.tvLocalIp.text = getLocalIp()
     }
@@ -153,5 +156,13 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
 
     override fun onStartTestClick(pos: Int) {
         viewModel.onStartTestClick(pos)
+    }
+
+    override fun onStopTestClick(pos: Int) {
+        viewModel.onStopTestClick(pos)
+    }
+
+    override fun onResultClick(pos: Int) {
+        viewModel.onResultClick(pos)
     }
 }
