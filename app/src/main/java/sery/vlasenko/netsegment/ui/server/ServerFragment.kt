@@ -90,32 +90,54 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
         }
     }
 
-    private fun handleUiState(uiState: UiState) {
+    private fun handleUiState(uiState: ServerButtonState) {
         when (uiState) {
-            UiState.SocketClosed -> {
+            ServerButtonState.TcpSocketOpened -> {
                 binding.run {
-                    etPort.isEnabled = true
-                    btnOpenSocket.isEnabled = true
-                    btnCloseSocket.isEnabled = false
+                    etTcpPort.isEnabled = false
+                    btnOpenTcpSocket.isEnabled = false
+                    btnCloseTcpSocket.isEnabled = true
                 }
             }
-            UiState.SocketOpened -> {
+            ServerButtonState.TcpSocketClosed -> {
                 binding.run {
-                    etPort.isEnabled = false
-                    btnOpenSocket.isEnabled = false
-                    btnCloseSocket.isEnabled = true
+                    etTcpPort.isEnabled = true
+                    btnOpenTcpSocket.isEnabled = true
+                    btnCloseTcpSocket.isEnabled = false
+                }
+            }
+            ServerButtonState.UdpSocketOpened -> {
+                binding.run {
+                    etUdpPort.isEnabled = false
+                    btnOpenUdpSocket.isEnabled = false
+                    btnCloseUdpSocket.isEnabled = true
+                }
+            }
+            ServerButtonState.UdpSocketClosed -> {
+                binding.run {
+                    etUdpPort.isEnabled = true
+                    btnOpenUdpSocket.isEnabled = true
+                    btnCloseUdpSocket.isEnabled = false
                 }
             }
         }
     }
 
     private fun setClickers() {
-        binding.btnOpenSocket.setOnClickListener {
-            viewModel.onOpenSocketClicked(binding.etPort.text.toString())
+        binding.btnOpenTcpSocket.setOnClickListener {
+            viewModel.onOpenTcpSocketClicked(binding.etTcpPort.text.toString())
         }
 
-        binding.btnCloseSocket.setOnClickListener {
-            viewModel.onCloseSocketClicked()
+        binding.btnCloseTcpSocket.setOnClickListener {
+            viewModel.onCloseTcpSocketClicked()
+        }
+
+        binding.btnOpenUdpSocket.setOnClickListener {
+            viewModel.onOpenUdpSocketClicked(binding.etUdpPort.text.toString())
+        }
+
+        binding.btnCloseUdpSocket.setOnClickListener {
+            viewModel.onCloseUdpSocketClicked()
         }
     }
 

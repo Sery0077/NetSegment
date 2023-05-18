@@ -19,11 +19,11 @@ import sery.vlasenko.netsegment.model.connections.TcpConnection
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
-import sery.vlasenko.netsegment.ui.server.UiState
+import sery.vlasenko.netsegment.ui.server.ServerButtonState
 import sery.vlasenko.netsegment.ui.server.log.LogState
-import java.net.ConnectException
-import java.net.InetSocketAddress
-import java.net.Socket
+import sery.vlasenko.netsegment.utils.PacketFactory
+import sery.vlasenko.netsegment.utils.PacketType
+import java.net.*
 
 class ClientViewModel : BaseRXViewModel() {
 
@@ -37,8 +37,8 @@ class ClientViewModel : BaseRXViewModel() {
     val logState: SharedFlow<LogState>
         get() = _logState
 
-    private val _uiState: MutableLiveData<UiState> = MutableLiveData(UiState.SocketClosed)
-    val uiState: LiveData<UiState>
+    private val _uiState: MutableLiveData<ClientUiState> = MutableLiveData(ClientUiState.SocketClosed)
+    val uiState: LiveData<ClientUiState>
         get() = _uiState
 
     private val _singleEvent: MutableLiveData<SingleEvent> = MutableLiveData()
@@ -88,11 +88,35 @@ class ClientViewModel : BaseRXViewModel() {
 
             if (socket.isConnected) {
                 addMessageToLogs(getString(R.string.connected, "$ip $port"))
-                _uiState.value = UiState.SocketOpened
+                _uiState.value = ClientUiState.SocketClosed
 
                 conn = TcpConnection(socket, getHandler(socket)).apply {
                     handler?.start()
                 }
+            }
+        } catch (e: ConnectException) {
+            addMessageToLogs(getString(R.string.connect_error, "$ip $port"))
+        }
+    }
+
+    private fun openUdpSocket(ip: String, port: String) {
+        try {
+            val socket = DatagramSocket()
+            socket.connect(InetSocketAddress(ip, port.toInt()))
+
+            if (socket.isConnected) {
+                addMessageToLogs(getString(R.string.connected, "$ip $port"))
+                _uiState.value = ClientUiState.SocketOpened
+
+                Thread {
+                    while (true) {
+                        val packet = PacketFactory.getPacket(PacketType.PING)
+
+                        socket.send(DatagramPacket(packet.send(), packet.send().size))
+
+                        Thread.sleep(1000)
+                    }
+                }.start()
             }
         } catch (e: ConnectException) {
             addMessageToLogs(getString(R.string.connect_error, "$ip $port"))
@@ -114,14 +138,14 @@ class ClientViewModel : BaseRXViewModel() {
 
         conn = null
 
-        _uiState.postValue(UiState.SocketClosed)
+        _uiState.postValue(ClientUiState.SocketClosed)
     }
 
     fun onConnectClicked(ip: String, port: String, protocol: Protocol) {
         if (protocol == Protocol.TCP) {
             openTcpSocket(ip, port)
         } else {
-            // TODO add udp protocol
+            openUdpSocket(ip, port)
         }
     }
 

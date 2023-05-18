@@ -4,8 +4,8 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
 
-class ConnectionHandler(
-    private val socket: ServerSocket?,
+class TcpConnectionHandler(
+    private val socket: ServerSocket,
     private val onConnectionAdd: (socket: Socket) -> Unit,
     private val onClose: () -> Unit = {}
 ): Thread() {
@@ -16,7 +16,7 @@ class ConnectionHandler(
     override fun run() {
         while (true) {
             try {
-                val socket = socket?.accept()
+                val socket = socket.accept()
 
                 if (socket != null) {
                     onConnectionAdd.invoke(socket)

@@ -11,12 +11,14 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
-import sery.vlasenko.netsegment.domain.socket_handlers.server.ConnectionHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.server.TcpConnectionHandler
 import sery.vlasenko.netsegment.domain.socket_handlers.server.PingHandler
 import sery.vlasenko.netsegment.domain.socket_handlers.server.TestHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.server.UdpConnectionHandler
 import sery.vlasenko.netsegment.model.LogItem
 import sery.vlasenko.netsegment.model.LogType
 import sery.vlasenko.netsegment.model.connections.Connection
+import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.model.connections.TcpConnection
 import sery.vlasenko.netsegment.model.test.Packet
 import sery.vlasenko.netsegment.model.test.PacketData
@@ -27,6 +29,7 @@ import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
 import sery.vlasenko.netsegment.utils.PacketType
 import sery.vlasenko.netsegment.utils.ResourceProvider
 import sery.vlasenko.netsegment.utils.Scripts
+import java.net.DatagramSocket
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.*
@@ -42,18 +45,21 @@ class ServerViewModel : BaseRXViewModel() {
     val connRecyclerState: SharedFlow<ConnRecyclerState>
         get() = _connRecyclerState
 
-    private val _uiState: MutableLiveData<UiState> = MutableLiveData(UiState.SocketClosed)
-    val uiState: LiveData<UiState>
+    private val _uiState: MutableLiveData<ServerButtonState> = MutableLiveData()
+    val uiState: LiveData<ServerButtonState>
         get() = _uiState
 
     private val _singleEvent: MutableLiveData<SingleEvent> = MutableLiveData()
     val singleEvent: LiveData<SingleEvent>
         get() = _singleEvent
 
-    private var socket: ServerSocket? = null
-    private var connectionHandler: ConnectionHandler? = null
+    private var tcpSocket: ServerSocket? = null
+    private var tcpHandler: TcpConnectionHandler? = null
+    private var tcpPort = 4444
 
-    private var mPort = 4444
+    private var udpSocket: DatagramSocket? = null
+    private var udpHandler: UdpConnectionHandler? = null
+    private var udpPort = 4445
 
     private val testResults: HashMap<Connection<*>, TestResult?> = hashMapOf()
     private val connections: MutableList<Connection<*>> = mutableListOf()
@@ -86,13 +92,23 @@ class ServerViewModel : BaseRXViewModel() {
         )
     }
 
-    private fun socketOpened(port: String) {
-        _uiState.value = UiState.SocketOpened
+    private fun tcpSocketOpened(port: String) {
+        _uiState.value = ServerButtonState.TcpSocketOpened
         _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_opened, port))
     }
 
-    private fun socketClosed(port: String) {
-        _uiState.value = UiState.SocketClosed
+    private fun tcpSocketClosed(port: String) {
+        _uiState.value = ServerButtonState.TcpSocketClosed
+        _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_closed, port))
+    }
+
+    private fun udpSocketOpened(port: String) {
+        _uiState.value = ServerButtonState.UdpSocketOpened
+        _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_opened, port))
+    }
+
+    private fun udpSocketClosed(port: String) {
+        _uiState.value = ServerButtonState.UdpSocketClosed
         _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_closed, port))
     }
 
@@ -100,28 +116,28 @@ class ServerViewModel : BaseRXViewModel() {
         return port.toIntOrNull() != null
     }
 
-    fun onCloseSocketClicked() {
-        closeSocket()
+    fun onCloseTcpSocketClicked() {
+        closeTcpSocket()
 
-        socketClosed(mPort.toString())
+        tcpSocketClosed(tcpPort.toString())
     }
 
-    fun onOpenSocketClicked(port: String) {
+    fun onOpenTcpSocketClicked(port: String) {
         if (isValidPort(port)) {
-            if (socket == null) {
-                socket = ServerSocket(port.toInt())
+            if (tcpSocket == null) {
+                tcpSocket = ServerSocket(port.toInt())
 
-                connectionHandler = ConnectionHandler(socket,
+                tcpHandler = TcpConnectionHandler(tcpSocket!!,
                     onConnectionAdd = { socket ->
                         onConnectionAdd(socket)
                     },
                     onClose = {
-                        clearConnections()
+                        clearTcpConnections()
                     }
                 )
-                connectionHandler?.start()
+                tcpHandler?.start()
 
-                socketOpened(port)
+                tcpSocketOpened(port)
             } else {
                 _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
             }
@@ -146,6 +162,7 @@ class ServerViewModel : BaseRXViewModel() {
         return PingHandler(socket,
             onPingGet = { ping ->
                 updateConnectionItem(index, connectionItems[index].copyPingUpdate(ping))
+                addLogToConnectionItem(index, "Ping get")
             },
             onUnknownPacketType = {
 //                conn.handler?.interrupt()
@@ -163,29 +180,26 @@ class ServerViewModel : BaseRXViewModel() {
         )
     }
 
-    private fun closeSocket() {
-        connectionHandler?.interrupt()
-        socket?.close()
+    private fun closeTcpSocket() {
+        tcpHandler?.interrupt()
+        tcpSocket?.close()
 
-        connectionHandler = null
-        socket = null
+        tcpHandler = null
+        tcpSocket = null
 
-        clearConnections()
+        clearTcpConnections()
     }
 
-    private fun clearConnections() {
-        connections.forEach { connection ->
-            connection.handler?.interrupt()
-            connection.close()
+    private fun clearTcpConnections() {
+        connections.forEachIndexed { index, connection ->
+            if (connection.protocol == Protocol.TCP) {
+                connection.handler?.interrupt()
+                connection.close()
+                connections.removeAt(index)
+            }
         }
-        connections.clear()
 
-        clearConnectionItems()
-    }
-
-    override fun onCleared() {
-        closeSocket()
-        super.onCleared()
+        clearTcpConnectionItems()
     }
 
     fun onStartTestClick(pos: Int) {
@@ -251,9 +265,13 @@ class ServerViewModel : BaseRXViewModel() {
         )
     }
 
-    private fun clearConnectionItems() {
-        connectionItems.clear()
-        _connRecyclerState.onNext(ConnRecyclerState.ConnClear)
+    private fun clearTcpConnectionItems() {
+        connectionItems.forEachIndexed { index, conn ->
+            if (conn.protocol == Protocol.TCP) {
+                connectionItems.removeAt(index)
+                _connRecyclerState.onNext(ConnRecyclerState.ConnRemove(index))
+            }
+        }
     }
 
     private fun updateConnectionItem(index: Int, connectionItem: ConnectionItem) {
@@ -297,6 +315,71 @@ class ServerViewModel : BaseRXViewModel() {
         viewModelScope.launch {
             this@onNext.emit(value)
         }
+    }
+
+    fun onOpenUdpSocketClicked(port: String) {
+        if (isValidPort(port)) {
+            if (udpSocket == null) {
+                udpSocket = DatagramSocket(port.toInt())
+
+                udpHandler = UdpConnectionHandler(
+                    udpSocket!!,
+                    onConnectSuccess = {
+
+                    },
+                    onConnectFail = {
+
+                    }
+                )
+                udpHandler?.start()
+
+                udpSocketOpened(port)
+            } else {
+                _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
+            }
+        } else {
+            _singleEvent.value = SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
+        }
+    }
+
+    fun onCloseUdpSocketClicked() {
+        closeUdpSocket()
+
+        udpSocketClosed(tcpPort.toString())
+    }
+
+    private fun closeUdpSocket() {
+        udpSocket?.close()
+        udpSocket = null
+
+        clearUdpConnections()
+    }
+
+    private fun clearUdpConnections() {
+        connections.forEachIndexed { index, connection ->
+            if (connection.protocol == Protocol.UDP) {
+                connection.handler?.interrupt()
+                connection.close()
+                connections.removeAt(index)
+            }
+        }
+
+        clearUdpConnectionItems()
+    }
+
+    private fun clearUdpConnectionItems() {
+        connectionItems.forEachIndexed { index, conn ->
+            if (conn.protocol == Protocol.UDP) {
+                connectionItems.removeAt(index)
+                _connRecyclerState.onNext(ConnRecyclerState.ConnRemove(index))
+            }
+        }
+    }
+
+    override fun onCleared() {
+        closeTcpSocket()
+        closeUdpSocket()
+        super.onCleared()
     }
 
     companion object {

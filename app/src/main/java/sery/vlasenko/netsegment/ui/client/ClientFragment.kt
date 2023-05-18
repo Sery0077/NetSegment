@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
-import sery.vlasenko.netsegment.ui.server.UiState
+import sery.vlasenko.netsegment.ui.server.ServerButtonState
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
 import sery.vlasenko.netsegment.ui.server.log.LogState
 import sery.vlasenko.netsegment.utils.buildSnackAndShow
@@ -78,13 +78,13 @@ class ClientFragment : Fragment() {
         }
     }
 
-    private fun handleUiState(state: UiState) {
+    private fun handleUiState(state: ClientUiState) {
         when (state) {
-            UiState.SocketClosed -> {
+            ClientUiState.SocketClosed -> {
                 binding.btnConnect.isEnabled = true
                 binding.btnDisconnect.isEnabled = false
             }
-            UiState.SocketOpened -> {
+            ClientUiState.SocketOpened -> {
                 binding.btnConnect.isEnabled = false
                 binding.btnDisconnect.isEnabled = true
             }

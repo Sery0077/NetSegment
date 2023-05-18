@@ -13,7 +13,7 @@ import java.net.Socket
 import java.nio.ByteBuffer
 
 class PacketHandler(
-    private val socket: Socket,
+    socket: Socket,
 ) {
 
     private val input: InputStream = socket.getInputStream()
@@ -45,7 +45,7 @@ class PacketHandler(
     }
 
     private fun handlePingPacket(onPacketReceived: (packet: Packet) -> Unit) {
-        val byteArray = ByteArray(PacketPing.arraySize)
+        val byteArray = ByteArray(PacketPing.packetDataSize)
 
         input.read(byteArray)
 
@@ -57,7 +57,7 @@ class PacketHandler(
     }
 
     private fun handlePingAnswerPacket(onPacketReceived: (packet: Packet) -> Unit) {
-        val byteArray = ByteArray(PacketPingAnswer.arraySize)
+        val byteArray = ByteArray(PacketPingAnswer.packetDataSize)
 
         input.read(byteArray)
 
@@ -75,7 +75,7 @@ class PacketHandler(
         val data = ByteArray(dataSize)
         b.read(data)
 
-        val buffer = ByteBuffer.allocate(PacketData.arraySize + dataSize)
+        val buffer = ByteBuffer.allocate(PacketData.packetDataSize + dataSize)
 
         buffer.putLong(time)
         buffer.putInt(dataSize)

@@ -1,9 +1,6 @@
 package sery.vlasenko.netsegment.utils
 
-import sery.vlasenko.netsegment.model.test.Packet
-import sery.vlasenko.netsegment.model.test.PacketData
-import sery.vlasenko.netsegment.model.test.PacketPing
-import sery.vlasenko.netsegment.model.test.PacketPingAnswer
+import sery.vlasenko.netsegment.model.test.*
 import kotlin.random.Random
 
 object PacketFactory {
@@ -22,11 +19,19 @@ object PacketFactory {
             PacketType.PING_ANSWER -> getPacketPingAnswer(time)
             PacketType.DATA -> getPacketData(dataSize)
             PacketType.SYS -> TODO()
-            PacketType.CONNECT -> TODO()
-            PacketType.CONNECT_ANSWER -> TODO()
+            PacketType.CONNECT -> getPacketConnect()
+            PacketType.CONNECT_ANSWER -> getPacketConnectAnswer()
             PacketType.DISCONNECT -> TODO()
             PacketType.SUSPEND -> TODO()
         }
+    }
+
+    private fun getPacketConnectAnswer(): Packet {
+        return PacketConnectAnswer()
+    }
+
+    private fun getPacketConnect(): Packet {
+        return PacketConnect()
     }
 
     fun getPacketPing(): PacketPing = PacketPing()

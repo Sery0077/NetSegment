@@ -60,7 +60,7 @@
                 tools:text="192.168.1.127" />
 
             <EditText
-                android:id="@+id/et_port"
+                android:id="@+id/et_tcp_port"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
@@ -71,31 +71,73 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/tv_local_ip" />
 
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btn_open_socket"
+            <EditText
+                android:id="@+id/et_udp_port"
                 android:layout_width="wrap_content"
-                android:layout_height="35dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/button_purple_selector"
-                android:paddingHorizontal="6dp"
-                android:text="@string/open_socket"
-                android:textColor="@color/white"
-                app:layout_constraintEnd_toStartOf="@id/btn_close_socket"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/et_port" />
+                android:layout_marginEnd="12dp"
+                android:hint="@string/port_hint"
+                android:inputType="numberDecimal"
+                android:text="4445"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tv_local_ip"/>
 
             <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btn_close_socket"
+                android:id="@+id/btn_open_tcp_socket"
                 android:layout_width="wrap_content"
                 android:layout_height="35dp"
                 android:layout_marginTop="8dp"
                 android:background="@drawable/button_purple_selector"
                 android:paddingHorizontal="6dp"
-                android:text="@string/close_socket"
+                android:text="@string/open_tcp_socket"
+                android:textColor="@color/white"
+                app:layout_constraintEnd_toStartOf="@id/btn_open_udp_socket"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/et_tcp_port" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_close_tcp_socket"
+                android:layout_width="wrap_content"
+                android:layout_height="35dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/button_purple_selector"
+                android:paddingHorizontal="6dp"
+                android:text="@string/close_tcp_socket"
+                android:textColor="@color/white"
+                android:enabled="false"
+                app:layout_constraintEnd_toStartOf="@id/btn_close_udp_socket"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/btn_open_tcp_socket" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_open_udp_socket"
+                android:layout_width="wrap_content"
+                android:layout_height="35dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/button_purple_selector"
+                android:paddingHorizontal="6dp"
+                android:text="@string/open_udp_socket"
                 android:textColor="@color/white"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toEndOf="@id/btn_open_socket"
-                app:layout_constraintTop_toBottomOf="@id/et_port" />
+                app:layout_constraintStart_toEndOf="@id/btn_open_tcp_socket"
+                app:layout_constraintTop_toBottomOf="@id/et_tcp_port"
+                />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_close_udp_socket"
+                android:layout_width="wrap_content"
+                android:layout_height="35dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/button_purple_selector"
+                android:paddingHorizontal="6dp"
+                android:text="@string/close_udp_socket"
+                android:textColor="@color/white"
+                android:enabled="false"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@id/btn_open_tcp_socket"
+                app:layout_constraintTop_toBottomOf="@id/btn_open_udp_socket" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rv_connections"
@@ -105,7 +147,7 @@
                 android:layout_marginVertical="18dp"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/btn_close_socket" />
+                app:layout_constraintTop_toBottomOf="@id/btn_close_udp_socket" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>

@@ -11,10 +11,13 @@ abstract class Packet(
         protected val headerByte: Byte = 99
 
         @JvmStatic
-        protected val HEADER_SIZE = 1
+        protected val headerSize = 1
 
         @JvmStatic
-        protected val PACKET_TYPE_SIZE = 1
+        protected val packetTypeSize = 1
+
+        @JvmStatic
+        protected val headersSize = packetTypeSize + headerSize
     }
 
     abstract fun send(): ByteArray
@@ -24,7 +27,8 @@ abstract class Packet(
     }
 
     interface Factory {
-        val arraySize: Int
+        val packetDataSize: Int
+        val packetSize: Int
         fun fromByteArray(byteArray: ByteArray): Packet
     }
 }

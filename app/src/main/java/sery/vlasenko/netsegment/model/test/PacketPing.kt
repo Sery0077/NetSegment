@@ -12,7 +12,7 @@ class PacketPing(
 ) : Packet(time) {
 
     override fun send(): ByteArray {
-        val buffer = ByteBuffer.allocate(HEADER_SIZE + PACKET_TYPE_SIZE + IS_ANSWER_SIZE + TIME_SIZE)
+        val buffer = ByteBuffer.allocate(packetSize)
         addHeader(buffer)
 
         buffer.put(PacketType.PING.toByte())
@@ -26,8 +26,11 @@ class PacketPing(
         private const val IS_ANSWER_SIZE = 1
         private const val TIME_SIZE = 8
 
-        override val arraySize: Int
-            get() = PACKET_TYPE_SIZE + IS_ANSWER_SIZE + TIME_SIZE
+        override val packetDataSize: Int
+            get() = IS_ANSWER_SIZE + TIME_SIZE
+
+        override val packetSize: Int
+            get() = headersSize + packetDataSize
 
         override fun fromByteArray(byteArray: ByteArray): PacketPing {
             val b = ByteBuffer.wrap(byteArray)
