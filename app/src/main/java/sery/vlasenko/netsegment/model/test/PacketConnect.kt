@@ -27,10 +27,10 @@ class PacketConnect(
         override val packetSize: Int
             get() = headersSize + packetDataSize
 
-        override fun fromByteArray(byteArray: ByteArray): PacketPing {
+        override fun fromByteArray(byteArray: ByteArray): PacketConnect {
             val b = ByteBuffer.wrap(byteArray)
 
-            return PacketPing(
+            return PacketConnect(
                 time = b.long,
             )
         }

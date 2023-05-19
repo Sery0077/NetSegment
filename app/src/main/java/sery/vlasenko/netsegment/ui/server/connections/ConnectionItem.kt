@@ -8,10 +8,10 @@ data class ConnectionItem(
     val protocol: Protocol,
     val ip: String,
     val port: String,
-    val ping: Long,
-    val state: ConnectionItemState,
-    val logs: MutableList<LogItem>,
-    val isResultAvailable: Boolean,
+    val ping: Long = -1L,
+    val state: ConnectionItemState = ConnectionItemState.IDLE,
+    val logs: MutableList<LogItem> = mutableListOf(),
+    val isResultAvailable: Boolean = false,
 ) {
 
     fun copyStartTest(): ConnectionItem = this.copy(state = ConnectionItemState.TESTING)

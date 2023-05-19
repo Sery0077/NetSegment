@@ -12,17 +12,16 @@ import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
 import sery.vlasenko.netsegment.domain.socket_handlers.client.ClientTcpHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.client.ClientUdpConnectionHandler
 import sery.vlasenko.netsegment.model.LogItem
+import sery.vlasenko.netsegment.model.LogType
 import sery.vlasenko.netsegment.model.connections.Connection
 import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.model.connections.TcpConnection
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
-import sery.vlasenko.netsegment.ui.server.ServerButtonState
 import sery.vlasenko.netsegment.ui.server.log.LogState
-import sery.vlasenko.netsegment.utils.PacketFactory
-import sery.vlasenko.netsegment.utils.PacketType
 import java.net.*
 
 class ClientViewModel : BaseRXViewModel() {
@@ -37,7 +36,8 @@ class ClientViewModel : BaseRXViewModel() {
     val logState: SharedFlow<LogState>
         get() = _logState
 
-    private val _uiState: MutableLiveData<ClientUiState> = MutableLiveData(ClientUiState.SocketClosed)
+    private val _uiState: MutableLiveData<ClientUiState> =
+        MutableLiveData(ClientUiState.SocketClosed)
     val uiState: LiveData<ClientUiState>
         get() = _uiState
 
@@ -73,14 +73,6 @@ class ClientViewModel : BaseRXViewModel() {
         )
     }
 
-    private fun addMessageToLogs(msg: String) {
-        logs.add(LogItem(message = msg))
-
-        viewModelScope.launch {
-            _logState.emit(LogState.LogAdd(logs.lastIndex))
-        }
-    }
-
     private fun openTcpSocket(ip: String, port: String) {
         try {
             val socket = Socket()
@@ -90,7 +82,7 @@ class ClientViewModel : BaseRXViewModel() {
                 addMessageToLogs(getString(R.string.connected, "$ip $port"))
                 _uiState.value = ClientUiState.SocketClosed
 
-                conn = TcpConnection(socket, getHandler(socket)).apply {
+                conn = TcpConnection(socket, getTcpHandler(socket)).apply {
                     handler?.start()
                 }
             }
@@ -102,28 +94,42 @@ class ClientViewModel : BaseRXViewModel() {
     private fun openUdpSocket(ip: String, port: String) {
         try {
             val socket = DatagramSocket()
-            socket.connect(InetSocketAddress(ip, port.toInt()))
 
-            if (socket.isConnected) {
-                addMessageToLogs(getString(R.string.connected, "$ip $port"))
-                _uiState.value = ClientUiState.SocketOpened
+            val socketAddress = InetSocketAddress(ip, port.toInt())
 
-                Thread {
-                    while (true) {
-                        val packet = PacketFactory.getPacket(PacketType.PING)
-
-                        socket.send(DatagramPacket(packet.send(), packet.send().size))
-
-                        Thread.sleep(1000)
-                    }
-                }.start()
-            }
+            ClientUdpConnectionHandler(
+                socketAddress,
+                socket,
+                onConnectSuccess = {
+                    addMessageToLogs("Success")
+                },
+                onConnectFail = {
+                    addMessageToLogs("Exception")
+                },
+                onTryConnect = {
+                    addMessageToLogs("Try connect")
+                },
+                onTimeout = {
+                    addMessageToLogs("Timeout")
+                }
+            ).start()
         } catch (e: ConnectException) {
             addMessageToLogs(getString(R.string.connect_error, "$ip $port"))
         }
     }
 
-    private fun getHandler(socket: Socket): ClientTcpHandler {
+    private fun addMessageToLogs(message: String, type: LogType = LogType.MESSAGE) {
+        logs.add(LogItem(message = message, type = type))
+        _logState.onNext(LogState.LogAdd(logs.lastIndex))
+    }
+
+    private fun <T> MutableSharedFlow<T>.onNext(value: T) {
+        viewModelScope.launch {
+            this@onNext.emit(value)
+        }
+    }
+
+    private fun getTcpHandler(socket: Socket): ClientTcpHandler {
         return ClientTcpHandler(
             socket,
             onClose = this::closeSocket

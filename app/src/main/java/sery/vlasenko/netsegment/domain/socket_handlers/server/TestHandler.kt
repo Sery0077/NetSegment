@@ -1,7 +1,7 @@
 package sery.vlasenko.netsegment.domain.socket_handlers.server
 
 import sery.vlasenko.netsegment.domain.TestResultHandler
-import sery.vlasenko.netsegment.domain.packet.PacketHandler
+import sery.vlasenko.netsegment.domain.packet.TcpPacketHandler
 import sery.vlasenko.netsegment.model.test.Packet
 import sery.vlasenko.netsegment.model.test.TestResult
 import sery.vlasenko.netsegment.model.testscripts.TestItem
@@ -26,7 +26,7 @@ class TestHandler(
     private val input: InputStream = socket.getInputStream()
     private val output: OutputStream = socket.getOutputStream()
 
-    private val packetHandler: PacketHandler = PacketHandler(socket)
+    private val packetHandler: TcpPacketHandler = TcpPacketHandler(socket)
 
     private val testResultHandler = TestResultHandler()
 

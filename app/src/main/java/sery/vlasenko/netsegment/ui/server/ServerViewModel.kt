@@ -11,24 +11,27 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
-import sery.vlasenko.netsegment.domain.socket_handlers.server.TcpConnectionHandler
 import sery.vlasenko.netsegment.domain.socket_handlers.server.PingHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.server.ServerUdpConnectionHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.server.TcpConnectionHandler
 import sery.vlasenko.netsegment.domain.socket_handlers.server.TestHandler
-import sery.vlasenko.netsegment.domain.socket_handlers.server.UdpConnectionHandler
 import sery.vlasenko.netsegment.model.LogItem
 import sery.vlasenko.netsegment.model.LogType
 import sery.vlasenko.netsegment.model.connections.Connection
 import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.model.connections.TcpConnection
+import sery.vlasenko.netsegment.model.connections.UdpConnection
 import sery.vlasenko.netsegment.model.test.Packet
 import sery.vlasenko.netsegment.model.test.PacketData
 import sery.vlasenko.netsegment.model.test.TestResult
 import sery.vlasenko.netsegment.model.testscripts.TestItem
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
+import sery.vlasenko.netsegment.ui.server.connections.ConnectionItemState
 import sery.vlasenko.netsegment.utils.PacketType
 import sery.vlasenko.netsegment.utils.ResourceProvider
 import sery.vlasenko.netsegment.utils.Scripts
+import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.ServerSocket
 import java.net.Socket
@@ -58,13 +61,13 @@ class ServerViewModel : BaseRXViewModel() {
     private var tcpPort = 4444
 
     private var udpSocket: DatagramSocket? = null
-    private var udpHandler: UdpConnectionHandler? = null
+    private var udpHandler: ServerUdpConnectionHandler? = null
     private var udpPort = 4445
 
     private val testResults: HashMap<Connection<*>, TestResult?> = hashMapOf()
     private val connections: MutableList<Connection<*>> = mutableListOf()
 
-    val connectionItems =  object: MutableList<ConnectionItem> by ArrayList() {
+    val connectionItems = object : MutableList<ConnectionItem> by ArrayList() {
         override fun add(element: ConnectionItem): Boolean {
             add(lastIndex + 1, element)
             _connRecyclerState.onNext(ConnRecyclerState.ConnAdd(lastIndex))
@@ -139,11 +142,29 @@ class ServerViewModel : BaseRXViewModel() {
 
                 tcpSocketOpened(port)
             } else {
-                _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
+                _singleEvent.value =
+                    SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
             }
         } else {
-            _singleEvent.value = SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
+            _singleEvent.value =
+                SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
         }
+    }
+
+    private fun addConnection(packet: DatagramPacket, protocol: Protocol) {
+        val conn = UdpConnection(DatagramSocket(), null)
+        connections.add(conn)
+        testResults[conn] = null
+
+        connectionItems.add(
+            ConnectionItem(
+                protocol = protocol,
+                ip = packet.address.hostAddress ?: "",
+                port = packet.port.toString(),
+                -1,
+                ConnectionItemState.IDLE
+            )
+        )
     }
 
     private fun onConnectionAdd(socket: Socket) {
@@ -223,7 +244,10 @@ class ServerViewModel : BaseRXViewModel() {
                             val ping = Calendar.getInstance().timeInMillis - it.time
 
                             updateConnectionItem(pos, connectionItems[pos].copyStartTest())
-                            addLogToConnectionItem(pos, "Packet received. Ping $ping. Data size ${it.dataSize}")
+                            addLogToConnectionItem(
+                                pos,
+                                "Packet received. Ping $ping. Data size ${it.dataSize}"
+                            )
                         }
                     },
                     onUnknownPacketType = {
@@ -279,13 +303,22 @@ class ServerViewModel : BaseRXViewModel() {
         _connRecyclerState.onNext(ConnRecyclerState.ConnChanged(index, connectionItem))
     }
 
-    private fun updateConnectionItemWithLog(index: Int, message: String, logType: LogType = LogType.MESSAGE, connectionItem: ConnectionItem) {
+    private fun updateConnectionItemWithLog(
+        index: Int,
+        message: String,
+        logType: LogType = LogType.MESSAGE,
+        connectionItem: ConnectionItem
+    ) {
         connectionItems[index] = connectionItem
         connectionItems[index].logs.add(LogItem(message = message, type = logType))
         _connRecyclerState.onNext(ConnRecyclerState.ConnChanged(index, connectionItem))
     }
 
-    private fun addLogToConnectionItem(index: Int, message: String, logType: LogType = LogType.MESSAGE) {
+    private fun addLogToConnectionItem(
+        index: Int,
+        message: String,
+        logType: LogType = LogType.MESSAGE
+    ) {
         val log = LogItem(message = message, type = logType)
         connectionItems[index].logs.add(log)
         _connRecyclerState.onNext(ConnRecyclerState.LogAdd(index, log))
@@ -322,10 +355,17 @@ class ServerViewModel : BaseRXViewModel() {
             if (udpSocket == null) {
                 udpSocket = DatagramSocket(port.toInt())
 
-                udpHandler = UdpConnectionHandler(
-                    udpSocket!!,
-                    onConnectSuccess = {
+                _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_opened))
 
+                udpHandler = ServerUdpConnectionHandler(
+                    udpSocket!!,
+                    onConnectAdd = {
+                        val ip = it.address.hostAddress ?: ""
+                        val mPort = it.port
+
+                        println("fefe connect add")
+
+                        addConnection(it, Protocol.UDP)
                     },
                     onConnectFail = {
 
@@ -335,10 +375,12 @@ class ServerViewModel : BaseRXViewModel() {
 
                 udpSocketOpened(port)
             } else {
-                _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
+                _singleEvent.value =
+                    SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
             }
         } else {
-            _singleEvent.value = SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
+            _singleEvent.value =
+                SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
         }
     }
 

@@ -1,7 +1,7 @@
 package sery.vlasenko.netsegment.domain.socket_handlers.client
 
 import okio.IOException
-import sery.vlasenko.netsegment.domain.packet.PacketHandler
+import sery.vlasenko.netsegment.domain.packet.TcpPacketHandler
 import sery.vlasenko.netsegment.model.test.Packet
 import sery.vlasenko.netsegment.utils.PacketFactory
 import sery.vlasenko.netsegment.utils.PacketType
@@ -40,7 +40,7 @@ class ClientTcpHandler(
                 val firstByte = input.read()
 
                 if (c == PacketFactory.PACKET_HEADER) {
-                    PacketHandler(socket).handlePacket(true, firstByte,
+                    TcpPacketHandler(socket).handlePacket(true, firstByte,
                         onPacketReceived = {
                             onPacketReceived.invoke(it)
                         },

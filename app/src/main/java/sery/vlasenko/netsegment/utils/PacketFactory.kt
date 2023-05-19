@@ -20,14 +20,14 @@ object PacketFactory {
             PacketType.DATA -> getPacketData(dataSize)
             PacketType.SYS -> TODO()
             PacketType.CONNECT -> getPacketConnect()
-            PacketType.CONNECT_ANSWER -> getPacketConnectAnswer()
+            PacketType.CONNECT_ANSWER -> getPacketConnectAnswer(time)
             PacketType.DISCONNECT -> TODO()
             PacketType.SUSPEND -> TODO()
         }
     }
 
-    private fun getPacketConnectAnswer(): Packet {
-        return PacketConnectAnswer()
+    private fun getPacketConnectAnswer(t: Long?): Packet {
+        return if (t == null ) PacketConnectAnswer() else PacketConnectAnswer(t)
     }
 
     private fun getPacketConnect(): Packet {
@@ -36,8 +36,7 @@ object PacketFactory {
 
     fun getPacketPing(): PacketPing = PacketPing()
     fun getPacketPingAnswer(t: Long?): PacketPingAnswer {
-        require(t != null) { throw IllegalArgumentException("Time must not be null") }
-        return PacketPingAnswer(time = t, isAnswer = true)
+        return if (t == null ) PacketPingAnswer(isAnswer = true) else PacketPingAnswer(t, true)
     }
 
     fun getPacketData(dataSize: Int, data: ByteArray = ByteArray(dataSize)): PacketData {

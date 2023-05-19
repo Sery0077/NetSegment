@@ -12,7 +12,7 @@ import java.io.OutputStream
 import java.net.Socket
 import java.nio.ByteBuffer
 
-class PacketHandler(
+class TcpPacketHandler(
     socket: Socket,
 ) {
 

@@ -28,7 +28,7 @@ abstract class Connection<T>(val socket: T, var handler: Thread?) {
     }
 
     override fun hashCode(): Int {
-        var result = ip?.hashCode() ?: 0
+        var result = ip.hashCode()
         result = 31 * result + port
         result = 31 * result + isConnected.hashCode()
         result = 31 * result + protocol.hashCode()

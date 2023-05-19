@@ -1,7 +1,7 @@
 package sery.vlasenko.netsegment.domain.socket_handlers.server
 
 import okio.IOException
-import sery.vlasenko.netsegment.domain.packet.PacketHandler
+import sery.vlasenko.netsegment.domain.packet.TcpPacketHandler
 import sery.vlasenko.netsegment.model.test.PacketPingAnswer
 import sery.vlasenko.netsegment.utils.PacketFactory
 import sery.vlasenko.netsegment.utils.PacketType
@@ -42,7 +42,7 @@ class PingHandler(
                 val firstByte = input.read()
 
                 if (c == PacketFactory.PACKET_HEADER) {
-                    PacketHandler(socket).handlePacket(false, firstByte,
+                    TcpPacketHandler(socket).handlePacket(false, firstByte,
                         onPacketReceived = { packet ->
                             (packet as? PacketPingAnswer)?.let {
                                 val ping = Calendar.getInstance().timeInMillis - it.time
