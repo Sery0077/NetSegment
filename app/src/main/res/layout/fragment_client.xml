@@ -49,7 +49,7 @@
             android:layout_height="wrap_content"
             android:inputType="none"
             android:maxLines="1"
-            android:text="192.168.232.2"
+            android:text="192.168.0.111"
             app:layout_constrainedWidth="true"
             app:layout_constraintBottom_toBottomOf="@id/ip_server_label"
             app:layout_constraintEnd_toEndOf="parent"
@@ -57,6 +57,16 @@
             app:layout_constraintStart_toEndOf="@id/ip_server_label"
             app:layout_constraintTop_toTopOf="@id/ip_server_label"
             tools:text="192.128.3.4" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/tv_ping"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="12dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="@id/et_server_ip"
+            app:layout_constraintTop_toTopOf="@id/et_server_ip"
+            tools:text="52 мс" />
 
         <EditText
             android:id="@+id/et_port"
@@ -66,7 +76,7 @@
             android:layout_marginTop="8dp"
             android:hint="@string/port_hint"
             android:inputType="numberDecimal"
-            android:text="4445"
+            android:text="23580"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/et_server_ip" />
 
@@ -76,7 +86,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:orientation="horizontal"
-            android:checkedButton="@id/rb_udp"
+            android:checkedButton="@id/rb_tcp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/et_port">
@@ -127,7 +137,6 @@
             android:layout_height="0dp"
             android:layout_marginHorizontal="6dp"
             android:layout_marginVertical="18dp"
-            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintTop_toBottomOf="@id/btn_connect" />
 

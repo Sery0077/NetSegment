@@ -9,17 +9,19 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
-import sery.vlasenko.netsegment.ui.server.ServerButtonState
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
 import sery.vlasenko.netsegment.ui.server.log.LogState
 import sery.vlasenko.netsegment.utils.buildSnackAndShow
 import sery.vlasenko.netsegment.utils.showToast
 import sery.vlasenko.netsegment.databinding.FragmentClientBinding
 import sery.vlasenko.netsegment.model.connections.Protocol
+import kotlin.math.log
 
 class ClientFragment : Fragment() {
 
@@ -62,7 +64,9 @@ class ClientFragment : Fragment() {
                 viewModel.logState.collectLatest {
                     when (it) {
                         is LogState.LogAdd -> {
+                            binding.rvLog.recycledViewPool.clear()
                             logAdapter.notifyItemInserted(it.position)
+                            binding.rvLog.scrollToPosition(it.position)
                         }
                     }
                 }
@@ -74,19 +78,35 @@ class ClientFragment : Fragment() {
                 is SingleEvent.ShowToastEvent -> {
                     showToast(it.msg)
                 }
+                is SingleEvent.ConnEvent.PingGet -> {
+                    binding.tvPing.text = getString(R.string.ping_pattern, it.ping)
+                }
+                is SingleEvent.ConnEvent.TestStart -> {
+
+                }
             }
         }
     }
 
     private fun handleUiState(state: ClientUiState) {
         when (state) {
-            ClientUiState.SocketClosed -> {
+            ClientUiState.Connected -> {
+                binding.btnConnect.isEnabled = false
+                binding.btnDisconnect.isEnabled = true
+            }
+            ClientUiState.Disconnected -> {
+                binding.etServerIp.isEnabled = true
+                binding.etPort.isEnabled = true
+
                 binding.btnConnect.isEnabled = true
                 binding.btnDisconnect.isEnabled = false
             }
-            ClientUiState.SocketOpened -> {
+            ClientUiState.Connecting -> {
+                binding.etServerIp.isEnabled = false
+                binding.etPort.isEnabled = false
+
                 binding.btnConnect.isEnabled = false
-                binding.btnDisconnect.isEnabled = true
+                binding.btnDisconnect.isEnabled = false
             }
         }
     }
@@ -109,6 +129,11 @@ class ClientFragment : Fragment() {
     }
 
     private fun initViews() {
+        binding.rvLog.layoutManager = object: LinearLayoutManager(requireContext()) {
+            override fun supportsPredictiveItemAnimations(): Boolean {
+                return false
+            }
+        }
         binding.rvLog.adapter = logAdapter
         binding.rvLog.setHasFixedSize(true)
 

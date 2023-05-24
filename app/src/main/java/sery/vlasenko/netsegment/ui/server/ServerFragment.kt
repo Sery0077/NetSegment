@@ -82,6 +82,8 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
                 is SingleEvent.ShowToastEvent -> {
                     showToast(it.msg)
                 }
+                is SingleEvent.ConnEvent.PingGet -> TODO()
+                is SingleEvent.ConnEvent.TestStart -> TODO()
             }
         }
 

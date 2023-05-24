@@ -6,23 +6,34 @@ import androidx.lifecycle.viewModelScope
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.kotlin.subscribeBy
 import io.reactivex.rxjava3.schedulers.Schedulers
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okio.Closeable
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
 import sery.vlasenko.netsegment.domain.socket_handlers.client.ClientTcpHandler
-import sery.vlasenko.netsegment.domain.socket_handlers.client.ClientUdpConnectionHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.client.ClientUdpHandler
 import sery.vlasenko.netsegment.model.LogItem
 import sery.vlasenko.netsegment.model.LogType
 import sery.vlasenko.netsegment.model.connections.Connection
 import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.model.connections.TcpConnection
+import sery.vlasenko.netsegment.model.connections.UdpConnection
+import sery.vlasenko.netsegment.model.test.udp.UdpPacketConnect
+import sery.vlasenko.netsegment.model.test.udp.UdpPacketDisconnect
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
 import sery.vlasenko.netsegment.ui.server.log.LogState
-import java.net.*
+import sery.vlasenko.netsegment.utils.TimeConst.CONNECTION_TIMEOUT
+import sery.vlasenko.netsegment.utils.datagramPacketFromArray
+import sery.vlasenko.netsegment.utils.datagramPacketFromSize
+import java.net.DatagramSocket
+import java.net.InetSocketAddress
+import java.net.Socket
 
 class ClientViewModel : BaseRXViewModel() {
 
@@ -37,7 +48,7 @@ class ClientViewModel : BaseRXViewModel() {
         get() = _logState
 
     private val _uiState: MutableLiveData<ClientUiState> =
-        MutableLiveData(ClientUiState.SocketClosed)
+        MutableLiveData(ClientUiState.Disconnected)
     val uiState: LiveData<ClientUiState>
         get() = _uiState
 
@@ -46,6 +57,10 @@ class ClientViewModel : BaseRXViewModel() {
         get() = _singleEvent
 
     private var conn: Connection<*>? = null
+
+    private val disconnect = datagramPacketFromArray(UdpPacketDisconnect().send())
+
+    private val connectionRetry = 3
 
     init {
 //        getIp()
@@ -73,48 +88,191 @@ class ClientViewModel : BaseRXViewModel() {
         )
     }
 
+    fun onConnectClicked(ip: String, port: String, protocol: Protocol) {
+        if (protocol == Protocol.TCP) {
+            openTcpSocket(ip, port)
+        } else {
+            openUdpSocket(ip, port)
+        }
+    }
+
+    fun onDisconnectClicked() {
+        closeSocket()
+    }
+
     private fun openTcpSocket(ip: String, port: String) {
-        try {
-            val socket = Socket()
-            socket.connect(InetSocketAddress(ip, port.toInt()))
+        addMessageToLogs(getString(R.string.connect_try, ip, port))
+        _uiState.value = ClientUiState.Connecting
 
-            if (socket.isConnected) {
-                addMessageToLogs(getString(R.string.connected, "$ip $port"))
-                _uiState.value = ClientUiState.SocketClosed
+        ioViewModelScope.launch {
+            for (i in 1..connectionRetry) {
+                try {
+                    val socket = Socket().apply {
+                        tcpNoDelay = true
+                        soTimeout = CONNECTION_TIMEOUT
+                    }
 
-                conn = TcpConnection(socket, getTcpHandler(socket)).apply {
-                    handler?.start()
+                    withContext(Dispatchers.IO) {
+                        socket.connect(
+                            InetSocketAddress(ip, port.toInt()),
+                            CONNECTION_TIMEOUT
+                        )
+                    }
+
+                    if (socket.isConnected) {
+                        socketConnected(socket, ip, port)
+                        break
+                    } else {
+                        addMessageToLogs(
+                            getString(R.string.connect_error, "$ip $port"),
+                            LogType.ERROR
+                        )
+                    }
+                } catch (e: Exception) {
+                    addMessageToLogs(
+                        getString(R.string.connect_error, ip, port),
+                        LogType.ERROR
+                    )
+                    addMessageToLogs(e.message.toString(), LogType.ERROR)
                 }
             }
-        } catch (e: ConnectException) {
-            addMessageToLogs(getString(R.string.connect_error, "$ip $port"))
+
+            if (conn == null) {
+                _uiState.postValue(ClientUiState.Disconnected)
+            }
         }
     }
 
     private fun openUdpSocket(ip: String, port: String) {
-        try {
-            val socket = DatagramSocket()
+        addMessageToLogs(getString(R.string.connect_try, ip, port))
+        _uiState.value = ClientUiState.Connecting
 
-            val socketAddress = InetSocketAddress(ip, port.toInt())
+        ioViewModelScope.launch {
+            for (i in 1..connectionRetry) {
+                try {
+                    val addr = InetSocketAddress(ip, port.toInt())
+                    val socket = DatagramSocket().apply {
+                        soTimeout = CONNECTION_TIMEOUT
+                    }
 
-            ClientUdpConnectionHandler(
-                socketAddress,
-                socket,
-                onConnectSuccess = {
-                    addMessageToLogs("Success")
-                },
-                onConnectFail = {
-                    addMessageToLogs("Exception")
-                },
-                onTryConnect = {
-                    addMessageToLogs("Try connect")
-                },
-                onTimeout = {
-                    addMessageToLogs("Timeout")
+                    socket.send(
+                        datagramPacketFromArray(
+                            UdpPacketConnect(isAnswer = false).send(),
+                            addr
+                        )
+                    )
+
+                    val answer = datagramPacketFromSize(UdpPacketConnect.packetSize)
+
+                    socket.receive(answer)
+
+                    if (answer.data[0].toInt() == 6) {
+                        socket.connect(addr)
+
+                        addMessageToLogs(
+                            getString(
+                                R.string.connected, ip, port
+                            )
+                        )
+                        _uiState.postValue(ClientUiState.Connected)
+
+                        conn = UdpConnection(socket, getUdpHandler(socket).apply {
+                            start()
+                        })
+                        break
+                    } else {
+                        addMessageToLogs(
+                            getString(R.string.connect_error, addr.hostName, addr.port.toString()),
+                            LogType.ERROR
+                        )
+                    }
+                } catch (e: Exception) {
+                    addMessageToLogs(getString(R.string.connect_error, ip, port), LogType.ERROR)
+                    addMessageToLogs(e.message.toString(), LogType.ERROR)
                 }
-            ).start()
-        } catch (e: ConnectException) {
-            addMessageToLogs(getString(R.string.connect_error, "$ip $port"))
+            }
+
+            if (conn == null) {
+                _uiState.postValue(ClientUiState.Disconnected)
+            }
+        }
+    }
+
+    private fun socketConnected(socket: Any, ip: String, port: String) {
+        addMessageToLogs(
+            getString(
+                R.string.connected, ip, port
+            )
+        )
+        _uiState.postValue(ClientUiState.Connected)
+
+        when (socket) {
+            is Socket -> {
+                conn = TcpConnection(socket, getTcpHandler(socket).apply {
+                    start()
+                })
+            }
+            is DatagramSocket -> {
+                conn = UdpConnection(socket, getUdpHandler(socket).apply {
+                    start()
+                })
+            }
+        }
+    }
+
+    private fun getUdpHandler(socket: DatagramSocket): ClientUdpHandler {
+        return ClientUdpHandler(
+            socket = socket
+        ) {
+            handleCallback(it)
+        }
+    }
+
+    private fun handleCallback(callback: ClientHandlerCallback): Unit =
+        when (callback) {
+            ClientHandlerCallback.MeasuresEnd -> {
+                addMessageToLogs(getString(R.string.measures_end))
+            }
+            ClientHandlerCallback.MeasuresStart -> {
+                addMessageToLogs(getString(R.string.measures_start))
+            }
+            is ClientHandlerCallback.PingGet -> {
+                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet(callback.ping.toString()))
+            }
+            ClientHandlerCallback.SocketClose -> {
+                closeSocket()
+            }
+            ClientHandlerCallback.Timeout -> {
+                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet("--"))
+                addMessageToLogs("Timeout")
+            }
+            is ClientHandlerCallback.Except -> {
+                addMessageToLogs(callback.e.stackTraceToString())
+            }
+        }
+
+    private fun getTcpHandler(socket: Socket): ClientTcpHandler {
+        return ClientTcpHandler(
+            socket = socket,
+        ) {
+            handleCallback(it)
+        }
+    }
+
+    private fun closeSocket() {
+        conn?.let {
+            val port = conn?.port ?: 0
+
+            conn?.handler?.interrupt()
+            conn?.handler = null
+
+            (conn?.socket as? DatagramSocket)?.send(disconnect)
+            (conn?.socket as? Closeable)?.close()
+
+            conn = null
+
+            addMessageToLogs(getString(R.string.socket_closed, port.toString()))
+            _uiState.postValue(ClientUiState.Disconnected)
         }
     }
 
@@ -127,36 +285,6 @@ class ClientViewModel : BaseRXViewModel() {
         viewModelScope.launch {
             this@onNext.emit(value)
         }
-    }
-
-    private fun getTcpHandler(socket: Socket): ClientTcpHandler {
-        return ClientTcpHandler(
-            socket,
-            onClose = this::closeSocket
-        )
-    }
-
-    private fun closeSocket() {
-        conn?.handler?.interrupt()
-        conn?.handler = null
-
-        (conn?.socket as? Socket)?.close()
-
-        conn = null
-
-        _uiState.postValue(ClientUiState.SocketClosed)
-    }
-
-    fun onConnectClicked(ip: String, port: String, protocol: Protocol) {
-        if (protocol == Protocol.TCP) {
-            openTcpSocket(ip, port)
-        } else {
-            openUdpSocket(ip, port)
-        }
-    }
-
-    fun onDisconnectClicked() {
-        closeSocket()
     }
 
     override fun onCleared() {

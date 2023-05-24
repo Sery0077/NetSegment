@@ -2,8 +2,10 @@ package sery.vlasenko.netsegment.ui.client
 
 sealed class ClientUiState {
 
-    object SocketClosed: ClientUiState()
+    object Connected: ClientUiState()
 
-    object SocketOpened: ClientUiState()
+    object Disconnected: ClientUiState()
+
+    object Connecting: ClientUiState()
 
 }
