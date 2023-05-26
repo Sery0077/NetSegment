@@ -36,15 +36,15 @@ class ConnectionAdapter(
     }
 
     class ConnectionVH(view: View, val logAdapter: LogAdapter) : ViewHolder(view) {
-        private val tvProtocol: TextView = view.findViewById(R.id.item_conn_tv_protocol)
-        private val tvIp: TextView = view.findViewById(R.id.item_conn_tv_ip)
-        private val tvPort: TextView = view.findViewById(R.id.item_conn_tv_port)
-        private val tvPing: TextView = view.findViewById(R.id.item_conn_tv_ping)
-        private val rvLog: RecyclerView = view.findViewById(R.id.item_conn_rv_logs)
+        private val tvProtocol: TextView = view.findViewById(R.id.conn_tv_protocol)
+        private val tvIp: TextView = view.findViewById(R.id.conn_tv_ip)
+        private val tvPort: TextView = view.findViewById(R.id.conn_tv_port)
+        private val tvPing: TextView = view.findViewById(R.id.conn_tv_ping)
+        private val rvLog: RecyclerView = view.findViewById(R.id.conn_rv_logs)
 
-        val btnStart: Button = view.findViewById(R.id.item_conn_btn_start_test)
-        val btnStop: Button = view.findViewById(R.id.item_conn_btn_stop_test)
-        val btnResult: Button = view.findViewById(R.id.item_conn_btn_show_result)
+        val btnStart: Button = view.findViewById(R.id.conn_btn_start_test)
+        val btnStop: Button = view.findViewById(R.id.conn_btn_stop_test)
+        val btnResult: Button = view.findViewById(R.id.conn_btn_show_result)
 
 //        var isScrolling = false
 

@@ -1,8 +1,10 @@
 package sery.vlasenko.netsegment.domain.socket_handlers.server
 
+import sery.vlasenko.netsegment.utils.TimeConst.CONNECTION_TIMEOUT
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
+import java.net.SocketTimeoutException
 
 class TcpConnectionHandler(
     private val socket: ServerSocket,
@@ -14,7 +16,9 @@ class TcpConnectionHandler(
     }
 
     override fun run() {
-        while (true) {
+        socket.soTimeout = 50
+
+        while (!isInterrupted) {
             try {
                 val socket = socket.accept()
 
@@ -24,6 +28,9 @@ class TcpConnectionHandler(
             } catch (e: SocketException) {
                 onClose.invoke()
                 break
+            }
+            catch (e: SocketTimeoutException) {
+
             }
         }
     }

@@ -31,7 +31,7 @@ class TestHandler(
     private val testResultHandler = TestResultHandler()
 
     companion object TestHandler {
-        private val TAG = PingHandler::class.java.simpleName
+        private val TAG = ServerTcpPingHandler::class.java.simpleName
     }
 
     init {

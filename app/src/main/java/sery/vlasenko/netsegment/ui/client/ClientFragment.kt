@@ -21,6 +21,8 @@ import sery.vlasenko.netsegment.utils.buildSnackAndShow
 import sery.vlasenko.netsegment.utils.showToast
 import sery.vlasenko.netsegment.databinding.FragmentClientBinding
 import sery.vlasenko.netsegment.model.connections.Protocol
+import sery.vlasenko.netsegment.utils.disable
+import sery.vlasenko.netsegment.utils.enable
 import kotlin.math.log
 
 class ClientFragment : Fragment() {
@@ -79,9 +81,15 @@ class ClientFragment : Fragment() {
                     showToast(it.msg)
                 }
                 is SingleEvent.ConnEvent.PingGet -> {
-                    binding.tvPing.text = getString(R.string.ping_pattern, it.ping)
+                    binding.tvPing.text = getString(R.string.ping_pattern, it.ping.toString())
                 }
                 is SingleEvent.ConnEvent.TestStart -> {
+
+                }
+                is SingleEvent.ConnEvent.AddLog -> {
+
+                }
+                SingleEvent.ConnEvent.TestEnd -> {
 
                 }
             }
@@ -91,22 +99,37 @@ class ClientFragment : Fragment() {
     private fun handleUiState(state: ClientUiState) {
         when (state) {
             ClientUiState.Connected -> {
-                binding.btnConnect.isEnabled = false
-                binding.btnDisconnect.isEnabled = true
+                with(binding) {
+                    etServerIp.isEnabled = false
+                    etPort.isEnabled = false
+
+                    rgProtocol.disable()
+
+                    btnConnect.isEnabled = false
+                    btnDisconnect.isEnabled = true
+                }
             }
             ClientUiState.Disconnected -> {
-                binding.etServerIp.isEnabled = true
-                binding.etPort.isEnabled = true
+                with(binding) {
+                    etServerIp.isEnabled = true
+                    etPort.isEnabled = true
 
-                binding.btnConnect.isEnabled = true
-                binding.btnDisconnect.isEnabled = false
+                    rgProtocol.enable()
+
+                    btnConnect.isEnabled = true
+                    btnDisconnect.isEnabled = false
+                }
             }
             ClientUiState.Connecting -> {
-                binding.etServerIp.isEnabled = false
-                binding.etPort.isEnabled = false
+                with(binding) {
+                    etServerIp.isEnabled = false
+                    etPort.isEnabled = false
 
-                binding.btnConnect.isEnabled = false
-                binding.btnDisconnect.isEnabled = false
+                    rgProtocol.disable()
+
+                    btnConnect.isEnabled = false
+                    btnDisconnect.isEnabled = false
+                }
             }
         }
     }

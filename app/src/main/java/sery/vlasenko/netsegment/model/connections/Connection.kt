@@ -1,6 +1,8 @@
 package sery.vlasenko.netsegment.model.connections
 
-abstract class Connection<T>(val socket: T, var handler: Thread?) {
+import java.io.Closeable
+
+abstract class Connection<T: Closeable>(val socket: T, var handler: Thread?  = null) {
     abstract val ip: String?
     abstract val port: Int
     abstract val isConnected: Boolean
@@ -11,7 +13,6 @@ abstract class Connection<T>(val socket: T, var handler: Thread?) {
     var state = ConnectionState.IDLE
 
     abstract fun close()
-
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

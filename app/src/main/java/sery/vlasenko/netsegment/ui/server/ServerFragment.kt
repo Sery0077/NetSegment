@@ -4,20 +4,22 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
+import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.databinding.FragmentServerBinding
+import sery.vlasenko.netsegment.model.connections.Connection
+import sery.vlasenko.netsegment.model.connections.ConnectionState
+import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionAdapter
+import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
+import sery.vlasenko.netsegment.ui.server.connections.ConnectionItemState
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
-import sery.vlasenko.netsegment.utils.buildSnackAndShow
-import sery.vlasenko.netsegment.utils.orEmpty
-import sery.vlasenko.netsegment.utils.showToast
-import java.net.*
+import sery.vlasenko.netsegment.utils.*
+import java.net.Inet4Address
+import java.net.NetworkInterface
 
 class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
 
@@ -32,7 +34,6 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
         get() = _binding!!
 
     private val logAdapter = LogAdapter()
-    private val connAdapter = ConnectionAdapter(this)
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -52,29 +53,8 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
             handleIpState(it)
         }
 
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.connRecyclerState.collectLatest {
-                    when (it) {
-                        is ConnRecyclerState.ConnAdd -> {
-                            connAdapter.notifyItemInserted(it.position)
-                        }
-                        is ConnRecyclerState.ConnRemove -> {
-                            connAdapter.notifyItemRemoved(it.position)
-                        }
-                        is ConnRecyclerState.LogAdd -> {
-                            connAdapter.notifyItemChanged(it.position, it.logItem)
-                            logAdapter.notifyItemInserted(it.position)
-                        }
-                        is ConnRecyclerState.ConnChanged -> {
-                            connAdapter.notifyItemChanged(it.position, it.connectionItem)
-                        }
-                        is ConnRecyclerState.ConnClear -> {
-                            connAdapter.notifyItemRangeRemoved(0, connAdapter.itemCount)
-                        }
-                    }
-                }
-            }
+        viewModel.connItem.observe(viewLifecycleOwner) { conn ->
+            handleConnection(conn)
         }
 
         viewModel.singleEvent.observe(viewLifecycleOwner) {
@@ -82,8 +62,20 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
                 is SingleEvent.ShowToastEvent -> {
                     showToast(it.msg)
                 }
-                is SingleEvent.ConnEvent.PingGet -> TODO()
-                is SingleEvent.ConnEvent.TestStart -> TODO()
+                is SingleEvent.ConnEvent.PingGet -> {
+                    binding.connTvPing.text = getString(R.string.ping_pattern, it.ping.toString())
+                }
+                SingleEvent.ConnEvent.TestStart -> {
+                    binding.connBtnStartTest.isEnabled = false
+                    binding.connBtnStopTest.isEnabled = true
+                }
+                SingleEvent.ConnEvent.TestEnd -> {
+                    binding.connBtnStartTest.isEnabled = true
+                    binding.connBtnStopTest.isEnabled = false
+                }
+                is SingleEvent.ConnEvent.AddLog -> {
+                    logAdapter.notifyItemInserted(it.pos)
+                }
             }
         }
 
@@ -92,64 +84,103 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
         }
     }
 
+    private fun handleConnection(conn: ConnectionItem?) {
+        if (conn == null) {
+            binding.connection.visibility = View.GONE
+            return
+        }
+
+        conn.let {
+            with(binding) {
+                connTvIp.text = conn.ip
+                connTvPort.text = conn.port.toString()
+
+                when (conn.state) {
+                    ConnectionItemState.IDLE -> {
+                        connBtnStartTest.isEnabled = true
+                        connBtnStopTest.isEnabled = false
+                    }
+                    ConnectionItemState.TESTING -> {
+                        connBtnStartTest.isEnabled = false
+                        connBtnStopTest.isEnabled = true
+                    }
+                }
+
+                with(connTvProtocol) {
+                    when (conn.protocol) {
+                        Protocol.UDP -> setBackgroundColor(
+                            ContextCompat.getColor(
+                                requireContext(),
+                                R.color.teal_700
+                            )
+                        )
+                        Protocol.TCP -> setBackgroundColor(
+                            ContextCompat.getColor(
+                                requireContext(),
+                                R.color.purple_700
+                            )
+                        )
+                    }
+                    text = conn.protocol.name
+                }
+
+                connection.isVisible = true
+            }
+        }
+    }
+
     private fun handleUiState(uiState: ServerButtonState) {
         when (uiState) {
-            ServerButtonState.TcpSocketOpened -> {
+            ServerButtonState.SocketOpened -> {
                 binding.run {
-                    etTcpPort.isEnabled = false
-                    btnOpenTcpSocket.isEnabled = false
-                    btnCloseTcpSocket.isEnabled = true
+                    etPort.isEnabled = false
+                    rgProtocol.disable()
+
+                    btnOpen.isEnabled = false
+                    btnClose.isEnabled = true
                 }
             }
-            ServerButtonState.TcpSocketClosed -> {
+            ServerButtonState.SocketClosed -> {
                 binding.run {
-                    etTcpPort.isEnabled = true
-                    btnOpenTcpSocket.isEnabled = true
-                    btnCloseTcpSocket.isEnabled = false
-                }
-            }
-            ServerButtonState.UdpSocketOpened -> {
-                binding.run {
-                    etUdpPort.isEnabled = false
-                    btnOpenUdpSocket.isEnabled = false
-                    btnCloseUdpSocket.isEnabled = true
-                }
-            }
-            ServerButtonState.UdpSocketClosed -> {
-                binding.run {
-                    etUdpPort.isEnabled = true
-                    btnOpenUdpSocket.isEnabled = true
-                    btnCloseUdpSocket.isEnabled = false
+                    etPort.isEnabled = true
+                    rgProtocol.enable()
+
+                    btnOpen.isEnabled = true
+                    btnClose.isEnabled = false
+
+                    binding.connection.visibility = View.GONE
                 }
             }
         }
     }
 
     private fun setClickers() {
-        binding.btnOpenTcpSocket.setOnClickListener {
-            viewModel.onOpenTcpSocketClicked(binding.etTcpPort.text.toString())
+        binding.btnOpen.setOnClickListener {
+            val port = binding.etPort.text.toString()
+            val protocol = handleProtocol()
+
+            viewModel.onOpenSocketClicked(port, protocol)
         }
 
-        binding.btnCloseTcpSocket.setOnClickListener {
-            viewModel.onCloseTcpSocketClicked()
+        binding.btnClose.setOnClickListener {
+            viewModel.onCloseSocketClicked()
         }
+    }
 
-        binding.btnOpenUdpSocket.setOnClickListener {
-            viewModel.onOpenUdpSocketClicked(binding.etUdpPort.text.toString())
-        }
-
-        binding.btnCloseUdpSocket.setOnClickListener {
-            viewModel.onCloseUdpSocketClicked()
+    private fun handleProtocol(): Protocol {
+        return when (binding.rgProtocol.checkedRadioButtonId) {
+            binding.rbTcp.id -> Protocol.TCP
+            binding.rbUdp.id -> Protocol.UDP
+            else -> throw IllegalArgumentException("Unknown id ${binding.rgProtocol.checkedRadioButtonId}")
         }
     }
 
 
     private fun initView() {
-        binding.rvConnections.adapter = connAdapter
-        binding.rvConnections.setHasFixedSize(true)
-        connAdapter.submitList(viewModel.connectionItems)
-
         binding.tvLocalIp.text = getLocalIp()
+
+        logAdapter.submitList(viewModel.logs)
+        binding.connRvLogs.adapter = logAdapter
     }
 
     private fun getLocalIp(): String {
@@ -189,4 +220,5 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
     override fun onResultClick(pos: Int) {
         viewModel.onResultClick(pos)
     }
+
 }

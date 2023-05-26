@@ -2,19 +2,14 @@ package sery.vlasenko.netsegment.ui.server
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.viewModelScope
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.kotlin.subscribeBy
 import io.reactivex.rxjava3.schedulers.Schedulers
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import okhttp3.internal.closeQuietly
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
-import sery.vlasenko.netsegment.domain.socket_handlers.server.PingHandler
-import sery.vlasenko.netsegment.domain.socket_handlers.server.ServerUdpConnectionHandler
-import sery.vlasenko.netsegment.domain.socket_handlers.server.TcpConnectionHandler
-import sery.vlasenko.netsegment.domain.socket_handlers.server.TestHandler
+import sery.vlasenko.netsegment.domain.socket_handlers.server.*
 import sery.vlasenko.netsegment.model.LogItem
 import sery.vlasenko.netsegment.model.LogType
 import sery.vlasenko.netsegment.model.connections.Connection
@@ -22,19 +17,16 @@ import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.model.connections.TcpConnection
 import sery.vlasenko.netsegment.model.connections.UdpConnection
 import sery.vlasenko.netsegment.model.test.Packet
-import sery.vlasenko.netsegment.model.test.PacketData
 import sery.vlasenko.netsegment.model.test.TestResult
+import sery.vlasenko.netsegment.model.test.udp.UdpPacketDisconnect
 import sery.vlasenko.netsegment.model.testscripts.TestItem
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
-import sery.vlasenko.netsegment.ui.server.connections.ConnectionItemState
 import sery.vlasenko.netsegment.utils.PacketType
 import sery.vlasenko.netsegment.utils.ResourceProvider
 import sery.vlasenko.netsegment.utils.Scripts
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.ServerSocket
-import java.net.Socket
+import sery.vlasenko.netsegment.utils.datagramPacketFromArray
+import java.net.*
 import java.util.*
 
 class ServerViewModel : BaseRXViewModel() {
@@ -43,10 +35,9 @@ class ServerViewModel : BaseRXViewModel() {
     val ipState: LiveData<ServerUiState>
         get() = _ipState
 
-    private val _connRecyclerState: MutableSharedFlow<ConnRecyclerState> =
-        MutableSharedFlow(extraBufferCapacity = 20)
-    val connRecyclerState: SharedFlow<ConnRecyclerState>
-        get() = _connRecyclerState
+    private val _connItem: MutableLiveData<ConnectionItem?> = MutableLiveData(null)
+    val connItem: LiveData<ConnectionItem?>
+        get() = this._connItem
 
     private val _uiState: MutableLiveData<ServerButtonState> = MutableLiveData()
     val uiState: LiveData<ServerButtonState>
@@ -57,23 +48,17 @@ class ServerViewModel : BaseRXViewModel() {
         get() = _singleEvent
 
     private var tcpSocket: ServerSocket? = null
-    private var tcpHandler: TcpConnectionHandler? = null
-    private var tcpPort = 4444
+    private var tcpConnectionHandler: TcpConnectionHandler? = null
 
     private var udpSocket: DatagramSocket? = null
-    private var udpHandler: ServerUdpConnectionHandler? = null
-    private var udpPort = 4445
+    private var udpConnectionHandler: UdpConnectionHandler? = null
 
-    private val testResults: HashMap<Connection<*>, TestResult?> = hashMapOf()
-    private val connections: MutableList<Connection<*>> = mutableListOf()
+    private var port = 4444
 
-    val connectionItems = object : MutableList<ConnectionItem> by ArrayList() {
-        override fun add(element: ConnectionItem): Boolean {
-            add(lastIndex + 1, element)
-            _connRecyclerState.onNext(ConnRecyclerState.ConnAdd(lastIndex))
-            return true
-        }
-    }
+    private var conn: Connection<*>? = null
+
+    private val _logs = mutableListOf<LogItem>()
+    val logs: MutableList<LogItem> = Collections.synchronizedList(_logs)
 
     init {
 //        getIp()
@@ -95,23 +80,13 @@ class ServerViewModel : BaseRXViewModel() {
         )
     }
 
-    private fun tcpSocketOpened(port: String) {
-        _uiState.value = ServerButtonState.TcpSocketOpened
+    private fun socketOpened(port: String) {
+        _uiState.value = ServerButtonState.SocketOpened
         _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_opened, port))
     }
 
-    private fun tcpSocketClosed(port: String) {
-        _uiState.value = ServerButtonState.TcpSocketClosed
-        _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_closed, port))
-    }
-
-    private fun udpSocketOpened(port: String) {
-        _uiState.value = ServerButtonState.UdpSocketOpened
-        _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_opened, port))
-    }
-
-    private fun udpSocketClosed(port: String) {
-        _uiState.value = ServerButtonState.UdpSocketClosed
+    private fun socketClosed(port: String) {
+        _uiState.value = ServerButtonState.SocketClosed
         _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_closed, port))
     }
 
@@ -119,156 +94,100 @@ class ServerViewModel : BaseRXViewModel() {
         return port.toIntOrNull() != null
     }
 
-    fun onCloseTcpSocketClicked() {
+    fun onCloseSocketClicked() {
         closeTcpSocket()
+        closeUdpSocket()
 
-        tcpSocketClosed(tcpPort.toString())
+        socketClosed(port.toString())
     }
 
-    fun onOpenTcpSocketClicked(port: String) {
-        if (isValidPort(port)) {
-            if (tcpSocket == null) {
-                tcpSocket = ServerSocket(port.toInt())
-
-                tcpHandler = TcpConnectionHandler(tcpSocket!!,
-                    onConnectionAdd = { socket ->
-                        onConnectionAdd(socket)
-                    },
-                    onClose = {
-                        clearTcpConnections()
-                    }
-                )
-                tcpHandler?.start()
-
-                tcpSocketOpened(port)
-            } else {
-                _singleEvent.value =
-                    SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
-            }
-        } else {
-            _singleEvent.value =
-                SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
+    private fun getPingHandler(socket: Socket): ServerTcpPingHandler {
+        return ServerTcpPingHandler(socket) {
+            handlePing(it)
         }
     }
 
-    private fun addConnection(packet: DatagramPacket, protocol: Protocol) {
-        val conn = UdpConnection(DatagramSocket(), null)
-        connections.add(conn)
-        testResults[conn] = null
-
-        connectionItems.add(
-            ConnectionItem(
-                protocol = protocol,
-                ip = packet.address.hostAddress ?: "",
-                port = packet.port.toString(),
-                -1,
-                ConnectionItemState.IDLE
-            )
-        )
-    }
-
-    private fun onConnectionAdd(socket: Socket) {
-        val conn = TcpConnection(socket, getPingHandler(socket)).apply {
-            handler?.start()
-        }
-        connections.add(conn)
-        testResults[conn] = null
-
-        connectionItems.add(ConnectionItem.of(conn))
-    }
-
-    private fun getPingHandler(socket: Socket): PingHandler {
-        val index = connections.lastIndex + 1
-
-        return PingHandler(socket,
-            onPingGet = { ping ->
-                updateConnectionItem(index, connectionItems[index].copyPingUpdate(ping))
-                addLogToConnectionItem(index, "Ping get")
-            },
-            onUnknownPacketType = {
-//                conn.handler?.interrupt()
-                _connRecyclerState.onNext(
-                    ConnRecyclerState.LogAdd(
-                        index,
-                        LogItem(message = "Unknown packet $it", type = LogType.ERROR)
-                    )
-                )
-            },
-            onClose = {
-                connections.removeAt(index)
-                _connRecyclerState.onNext(ConnRecyclerState.ConnRemove(index))
+    private fun handlePing(callback: ServerPingHandlerCallback) {
+        when (callback) {
+            is ServerPingHandlerCallback.PingGet -> {
+                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet(callback.ping))
             }
-        )
+            ServerPingHandlerCallback.ConnectionClose -> {
+                onCloseConnection()
+            }
+            ServerPingHandlerCallback.Timeout -> {
+                addLog("Timeout")
+            }
+        }
     }
 
-    private fun closeTcpSocket() {
-        tcpHandler?.interrupt()
-        tcpSocket?.close()
+    private fun onCloseConnection() {
+        when (conn) {
+            is UdpConnection -> {
+                ioViewModelScope.launch {
+                    conn?.handler?.interrupt()
+                    conn?.handler?.join()
+                    conn = null
 
-        tcpHandler = null
-        tcpSocket = null
+                    udpSocket?.disconnect()
 
-        clearTcpConnections()
-    }
+                    udpConnectionHandler = getAndStartUdpConnectionHandler()
+                }
+            }
+            is TcpConnection -> {
+                ioViewModelScope.launch {
+                    conn?.close()
 
-    private fun clearTcpConnections() {
-        connections.forEachIndexed { index, connection ->
-            if (connection.protocol == Protocol.TCP) {
-                connection.handler?.interrupt()
-                connection.close()
-                connections.removeAt(index)
+                    conn = null
+
+                    tcpConnectionHandler = getTcpConnectionHandler()
+                }
             }
         }
 
-        clearTcpConnectionItems()
+        println("fefe on close")
+
+        _connItem.postValue(null)
     }
 
     fun onStartTestClick(pos: Int) {
-        val conn = connections[pos]
-        conn.handler?.interrupt()
-        conn.handler = null
+//        conn?.handler?.interrupt()
+//        conn?.handler = null
 
-        val newConnectionItem = connectionItems[pos].copyStartTest()
-        updateConnectionItemWithLog(
-            index = pos,
-            message = "Test start",
-            connectionItem = newConnectionItem
-        )
-
-        val testHandler = conn.socket
-            ?.let { socket ->
-                getTestHandler(
-                    socket as Socket,
-                    onPacketReceived = { packet ->
-                        (packet as? PacketData)?.let {
-                            val ping = Calendar.getInstance().timeInMillis - it.time
-
-                            updateConnectionItem(pos, connectionItems[pos].copyStartTest())
-                            addLogToConnectionItem(
-                                pos,
-                                "Packet received. Ping $ping. Data size ${it.dataSize}"
-                            )
-                        }
-                    },
-                    onUnknownPacketType = {
-                        addLogToConnectionItem(pos, "Unknown packet", LogType.ERROR)
-                    },
-                    onClose = {
-                        updateConnectionItem(pos, connectionItems[pos].copyStopTestWithResult())
-                        addLogToConnectionItem(pos, "Test end: client disconnect.")
-                    },
-                    onTestEnd = { testResult ->
-                        testResults[conn] = testResult
-
-                        updateConnectionItem(pos, connectionItems[pos].copyStopTestWithResult())
-                        addLogToConnectionItem(pos, "Test end: success")
-                    }
-                )
-            }
-            ?: return
-
-        conn.handler = testHandler
-        conn.handler?.start()
+//        val testHandler = conn.socket
+//            ?.let { socket ->
+//                getTestHandler(
+//                    socket as Socket,
+//                    onPacketReceived = { packet ->
+//                        (packet as? PacketData)?.let {
+//                            val ping = Calendar.getInstance().timeInMillis - it.time
+//
+//                            updateConnectionItem(pos, connectionItems[pos].copyStartTest())
+//                            addLog(
+//                                pos,
+//                                "Packet received. Ping $ping. Data size ${it.dataSize}"
+//                            )
+//                        }
+//                    },
+//                    onUnknownPacketType = {
+//                        addLog(pos, "Unknown packet", LogType.ERROR)
+//                    },
+//                    onClose = {
+//                        updateConnectionItem(pos, connectionItems[pos].copyStopTestWithResult())
+//                        addLog(pos, "Test end: client disconnect.")
+//                    },
+//                    onTestEnd = { testResult ->
+//                        testResults[conn] = testResult
+//
+//                        updateConnectionItem(pos, connectionItems[pos].copyStopTestWithResult())
+//                        addLog(pos, "Test end: success")
+//                    }
+//                )
+//            }
+//            ?: return
+//
+//        conn.handler = testHandler
+//        conn.handler?.start()
     }
 
     private fun getTestHandler(
@@ -289,91 +208,40 @@ class ServerViewModel : BaseRXViewModel() {
         )
     }
 
-    private fun clearTcpConnectionItems() {
-        connectionItems.forEachIndexed { index, conn ->
-            if (conn.protocol == Protocol.TCP) {
-                connectionItems.removeAt(index)
-                _connRecyclerState.onNext(ConnRecyclerState.ConnRemove(index))
-            }
-        }
-    }
-
-    private fun updateConnectionItem(index: Int, connectionItem: ConnectionItem) {
-        connectionItems[index] = connectionItem
-        _connRecyclerState.onNext(ConnRecyclerState.ConnChanged(index, connectionItem))
-    }
-
-    private fun updateConnectionItemWithLog(
-        index: Int,
-        message: String,
-        logType: LogType = LogType.MESSAGE,
-        connectionItem: ConnectionItem
-    ) {
-        connectionItems[index] = connectionItem
-        connectionItems[index].logs.add(LogItem(message = message, type = logType))
-        _connRecyclerState.onNext(ConnRecyclerState.ConnChanged(index, connectionItem))
-    }
-
-    private fun addLogToConnectionItem(
-        index: Int,
+    private fun addLog(
         message: String,
         logType: LogType = LogType.MESSAGE
     ) {
         val log = LogItem(message = message, type = logType)
-        connectionItems[index].logs.add(log)
-        _connRecyclerState.onNext(ConnRecyclerState.LogAdd(index, log))
+        _logs.add(log)
+        _singleEvent.postValue(SingleEvent.ConnEvent.AddLog(_logs.lastIndex))
     }
 
     fun onStopTestClick(pos: Int) {
-        val conn = connections[pos]
-
-        if (conn is TcpConnection) {
-            with(conn) {
-                handler?.interrupt()
-                handler = null
-
-                handler = getPingHandler(conn.socket)
-                handler?.start()
-            }
-        } else {
-            // TODO add UdpConnection
-        }
+//        conn?.handler?.interrupt()
+//        conn?.handler = null
+//
+//        (conn as? TcpConnection)?.let { conn ->
+//            conn.handler = getPingHandler(conn.socket)
+//            conn.handler?.start()
+//        }
     }
 
     fun onResultClick(pos: Int) {
         TODO("Not yet implemented")
     }
 
-    private fun <T> MutableSharedFlow<T>.onNext(value: T) {
-        viewModelScope.launch {
-            this@onNext.emit(value)
-        }
-    }
-
-    fun onOpenUdpSocketClicked(port: String) {
+    private fun openUdpSocket(port: String) {
         if (isValidPort(port)) {
             if (udpSocket == null) {
                 udpSocket = DatagramSocket(port.toInt())
 
                 _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_opened))
 
-                udpHandler = ServerUdpConnectionHandler(
-                    udpSocket!!,
-                    onConnectAdd = {
-                        val ip = it.address.hostAddress ?: ""
-                        val mPort = it.port
+                udpConnectionHandler = getAndStartUdpConnectionHandler()
 
-                        println("fefe connect add")
-
-                        addConnection(it, Protocol.UDP)
-                    },
-                    onConnectFail = {
-
-                    }
-                )
-                udpHandler?.start()
-
-                udpSocketOpened(port)
+                this.port = port.toInt()
+                socketOpened(port)
             } else {
                 _singleEvent.value =
                     SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
@@ -384,37 +252,127 @@ class ServerViewModel : BaseRXViewModel() {
         }
     }
 
-    fun onCloseUdpSocketClicked() {
-        closeUdpSocket()
+    private fun getAndStartUdpConnectionHandler(): UdpConnectionHandler? {
+        udpSocket?.let {
+            return UdpConnectionHandler(
+                it,
+                onConnectAdd = {
+                    onAddConnection(it)
+                },
+                onConnectFail = {
 
-        udpSocketClosed(tcpPort.toString())
+                }
+            ).apply {
+                start()
+            }
+        } ?: return null
+    }
+
+    private fun onAddConnection(dp: DatagramPacket) {
+        ioViewModelScope.launch {
+            udpSocket?.let { socket ->
+                socket.connect(dp.socketAddress)
+
+                udpConnectionHandler?.interrupt()
+                udpConnectionHandler?.join()
+                udpConnectionHandler = null
+
+                conn = UdpConnection(
+                    socket,
+                    ServerUdpPingHandler(socket, this@ServerViewModel::handlePing).apply { start() }
+                )
+
+                _connItem.postValue(ConnectionItem.of(conn!!))
+            }
+        }
+    }
+
+    private fun onAddConnection(socket: Socket) {
+        ioViewModelScope.launch {
+            tcpConnectionHandler?.interrupt()
+            tcpConnectionHandler?.join()
+            tcpConnectionHandler = null
+
+            conn = TcpConnection(
+                socket,
+                ServerTcpPingHandler(socket, this@ServerViewModel::handlePing).apply { start() })
+
+            _connItem.postValue(ConnectionItem.of(conn!!))
+        }
+    }
+
+    // TODO --- TCP ---
+
+    private fun getTcpConnectionHandler(): TcpConnectionHandler? {
+        tcpSocket?.let { socket ->
+            return TcpConnectionHandler(
+                socket,
+                onConnectionAdd = { socket ->
+                    onAddConnection(socket)
+                },
+                onClose = {
+//                    onCloseConnection()
+                }
+            ).apply {
+                start()
+            }
+        } ?: return null
+    }
+
+    private fun openTcpSocket(port: String) {
+        if (isValidPort(port)) {
+            if (tcpSocket == null) {
+                try {
+                    tcpSocket = ServerSocket(port.toInt())
+
+                    tcpConnectionHandler = getTcpConnectionHandler()
+
+                    this.port = port.toInt()
+                    socketOpened(port)
+                } catch (e: BindException) {
+                    _singleEvent.value =
+                        SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
+                    tcpSocket?.close()
+                }
+            } else {
+                _singleEvent.value =
+                    SingleEvent.ShowToastEvent(getString(R.string.socket_already_opened))
+            }
+        } else {
+            _singleEvent.value =
+                SingleEvent.ShowToastEvent(ResourceProvider.getString(R.string.incorrect_port))
+        }
+    }
+
+    private fun closeTcpSocket() {
+        tcpSocket?.let {
+            ioViewModelScope.launch {
+                conn?.close()
+
+                tcpSocket!!.close()
+
+
+                tcpSocket = null
+            }
+
+            _uiState.postValue(ServerButtonState.SocketClosed)
+        }
     }
 
     private fun closeUdpSocket() {
-        udpSocket?.close()
-        udpSocket = null
+        udpSocket?.let {
+            ioViewModelScope.launch {
+                if (udpSocket?.isConnected == true) {
+                    udpSocket?.send(datagramPacketFromArray(UdpPacketDisconnect().send()))
+                }
 
-        clearUdpConnections()
-    }
+                conn?.close()
 
-    private fun clearUdpConnections() {
-        connections.forEachIndexed { index, connection ->
-            if (connection.protocol == Protocol.UDP) {
-                connection.handler?.interrupt()
-                connection.close()
-                connections.removeAt(index)
+                udpSocket?.close()
+                udpSocket = null
             }
-        }
 
-        clearUdpConnectionItems()
-    }
-
-    private fun clearUdpConnectionItems() {
-        connectionItems.forEachIndexed { index, conn ->
-            if (conn.protocol == Protocol.UDP) {
-                connectionItems.removeAt(index)
-                _connRecyclerState.onNext(ConnRecyclerState.ConnRemove(index))
-            }
+            _uiState.postValue(ServerButtonState.SocketClosed)
         }
     }
 
@@ -422,6 +380,13 @@ class ServerViewModel : BaseRXViewModel() {
         closeTcpSocket()
         closeUdpSocket()
         super.onCleared()
+    }
+
+    fun onOpenSocketClicked(port: String, protocol: Protocol) {
+        when (protocol) {
+            Protocol.UDP -> openUdpSocket(port)
+            Protocol.TCP -> openTcpSocket(port)
+        }
     }
 
     companion object {

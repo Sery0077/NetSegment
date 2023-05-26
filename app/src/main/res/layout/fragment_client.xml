@@ -49,7 +49,7 @@
             android:layout_height="wrap_content"
             android:inputType="none"
             android:maxLines="1"
-            android:text="192.168.0.111"
+            android:text="127.0.0.1"
             app:layout_constrainedWidth="true"
             app:layout_constraintBottom_toBottomOf="@id/ip_server_label"
             app:layout_constraintEnd_toEndOf="parent"
@@ -76,7 +76,7 @@
             android:layout_marginTop="8dp"
             android:hint="@string/port_hint"
             android:inputType="numberDecimal"
-            android:text="23580"
+            android:text="23555"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/et_server_ip" />
 

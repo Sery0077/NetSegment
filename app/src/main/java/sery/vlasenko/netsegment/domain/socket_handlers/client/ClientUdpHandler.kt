@@ -1,9 +1,11 @@
 package sery.vlasenko.netsegment.domain.socket_handlers.client
 
 import android.os.Looper
+import okio.IOException
 import sery.vlasenko.netsegment.model.test.udp.UdpPacketMeasuresAsk
 import sery.vlasenko.netsegment.model.test.udp.UdpPacketPing
 import sery.vlasenko.netsegment.ui.client.ClientHandlerCallback
+import sery.vlasenko.netsegment.utils.TimeConst.PING_TIMEOUT
 import sery.vlasenko.netsegment.utils.datagramPacketFromArray
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -33,39 +35,46 @@ class ClientUdpHandler(
     var lastTimePingSend = AtomicLong(0)
 
     override fun run() {
-        socket.soTimeout = 2000
+        socket.soTimeout = PING_TIMEOUT
 
-        while (isWorking.get()) {
+        while (!isInterrupted) {
             try {
-                synchronized(socket) {
-                    socket.receive(buf)
+                socket.receive(buf)
 
-                    when (buf.data[0].toInt()) {
-                        1 -> {
-                            socket.send(pingAnswer)
-                            socket.send(ping)
-                            lastTimePingSend.set(System.currentTimeMillis())
+                when (buf.data[0].toInt()) {
+                    1 -> {
+                        socket.send(pingAnswer)
+                        socket.send(ping)
+                        lastTimePingSend.set(System.currentTimeMillis())
+                    }
+                    2 -> {
+                        println("client ping")
+                        handlePing()
+                    }
+                    4 -> {
+                        if (buf.data[5].toInt() == 1) {
+                            socket.send(measuresAsk)
+                            sendCallback(ClientHandlerCallback.MeasuresStart)
+                        } else if (buf.data[5].toInt() == 10) {
+                            sendCallback(ClientHandlerCallback.MeasuresEnd)
                         }
-                        2 -> {
-                            handlePing()
-                        }
-                        4 -> {
-                            if (buf.data[5].toInt() == 1) {
-                                socket.send(measuresAsk)
-                                sendCallback(ClientHandlerCallback.MeasuresStart)
-                            } else if (buf.data[5].toInt() == 10) {
-                                sendCallback(ClientHandlerCallback.MeasuresEnd)
-                            }
-                        }
-                        3 -> {
-                            socket.send(buf)
-                        }
+                    }
+                    7 -> {
+                        sendCallback(ClientHandlerCallback.SocketClose)
+                        interrupt()
+                    }
+                    3 -> {
+                        socket.send(buf)
                     }
                 }
             } catch (e: SocketException) {
+                sendCallback(ClientHandlerCallback.SocketClose)
+                interrupt()
                 break
             } catch (e: SocketTimeoutException) {
                 sendCallback(ClientHandlerCallback.Timeout)
+            } catch (e: IOException) {
+                sendCallback(ClientHandlerCallback.SocketClose)
             }
         }
     }
@@ -79,14 +88,6 @@ class ClientUdpHandler(
     private fun sendCallback(callback: ClientHandlerCallback) {
         android.os.Handler(Looper.getMainLooper()).post {
             this.callback.invoke(callback)
-        }
-    }
-
-    private fun trySleep(s: Long) {
-        try {
-            sleep(s)
-        } catch (e: InterruptedException) {
-            currentThread().interrupt()
         }
     }
 

@@ -2,16 +2,12 @@ package sery.vlasenko.netsegment.ui.client
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.viewModelScope
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.kotlin.subscribeBy
 import io.reactivex.rxjava3.schedulers.Schedulers
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okio.Closeable
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
 import sery.vlasenko.netsegment.domain.socket_handlers.client.ClientTcpHandler
@@ -34,6 +30,7 @@ import sery.vlasenko.netsegment.utils.datagramPacketFromSize
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.*
 
 class ClientViewModel : BaseRXViewModel() {
 
@@ -41,7 +38,8 @@ class ClientViewModel : BaseRXViewModel() {
     val ipState: LiveData<ServerUiState>
         get() = _ipState
 
-    val logs: MutableList<LogItem> = mutableListOf()
+    private val _logs = mutableListOf<LogItem>()
+    val logs: MutableList<LogItem> = Collections.synchronizedList(_logs)
 
     private val _logState: MutableSharedFlow<LogState> = MutableSharedFlow()
     val logState: SharedFlow<LogState>
@@ -109,15 +107,12 @@ class ClientViewModel : BaseRXViewModel() {
                 try {
                     val socket = Socket().apply {
                         tcpNoDelay = true
-                        soTimeout = CONNECTION_TIMEOUT
                     }
 
-                    withContext(Dispatchers.IO) {
-                        socket.connect(
-                            InetSocketAddress(ip, port.toInt()),
-                            CONNECTION_TIMEOUT
-                        )
-                    }
+                    socket.connect(
+                        InetSocketAddress(ip, port.toInt()),
+                        CONNECTION_TIMEOUT
+                    )
 
                     if (socket.isConnected) {
                         socketConnected(socket, ip, port)
@@ -176,9 +171,11 @@ class ClientViewModel : BaseRXViewModel() {
                         )
                         _uiState.postValue(ClientUiState.Connected)
 
-                        conn = UdpConnection(socket, getUdpHandler(socket).apply {
-                            start()
-                        })
+                        conn = UdpConnection(
+                            socket,
+                            getUdpHandler(socket, this@ClientViewModel::handleCallback).apply {
+                                start()
+                            })
                         break
                     } else {
                         addMessageToLogs(
@@ -208,27 +205,35 @@ class ClientViewModel : BaseRXViewModel() {
 
         when (socket) {
             is Socket -> {
-                conn = TcpConnection(socket, getTcpHandler(socket).apply {
-                    start()
-                })
+                conn = TcpConnection(
+                    socket,
+                    getTcpHandler(socket, this::handleCallback).apply {
+                        start()
+                    }
+                )
             }
             is DatagramSocket -> {
-                conn = UdpConnection(socket, getUdpHandler(socket).apply {
-                    start()
-                })
+                conn = UdpConnection(
+                    socket,
+                    getUdpHandler(socket, this::handleCallback).apply {
+                        start()
+                    }
+                )
             }
         }
     }
 
-    private fun getUdpHandler(socket: DatagramSocket): ClientUdpHandler {
+    private fun getUdpHandler(
+        socket: DatagramSocket,
+        handleCallback: (ClientHandlerCallback) -> Unit
+    ): ClientUdpHandler {
         return ClientUdpHandler(
-            socket = socket
-        ) {
-            handleCallback(it)
-        }
+            socket = socket,
+            callback = handleCallback
+        )
     }
 
-    private fun handleCallback(callback: ClientHandlerCallback): Unit =
+    private fun handleCallback(callback: ClientHandlerCallback): Unit {
         when (callback) {
             ClientHandlerCallback.MeasuresEnd -> {
                 addMessageToLogs(getString(R.string.measures_end))
@@ -237,43 +242,69 @@ class ClientViewModel : BaseRXViewModel() {
                 addMessageToLogs(getString(R.string.measures_start))
             }
             is ClientHandlerCallback.PingGet -> {
-                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet(callback.ping.toString()))
+                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet(callback.ping))
             }
             ClientHandlerCallback.SocketClose -> {
-                closeSocket()
+                onCloseSocketReceive()
             }
             ClientHandlerCallback.Timeout -> {
-                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet("--"))
+                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet(9999))
                 addMessageToLogs("Timeout")
             }
             is ClientHandlerCallback.Except -> {
                 addMessageToLogs(callback.e.stackTraceToString())
             }
         }
+    }
 
-    private fun getTcpHandler(socket: Socket): ClientTcpHandler {
+    private fun getTcpHandler(
+        socket: Socket,
+        callback: (ClientHandlerCallback) -> Unit
+    ): ClientTcpHandler {
         return ClientTcpHandler(
             socket = socket,
-        ) {
-            handleCallback(it)
+            callback = {
+                callback.invoke(it)
+            }
+        )
+    }
+
+    private fun onCloseSocketReceive() {
+        val port = conn?.port ?: 0
+
+        ioViewModelScope.launch {
+            conn?.let {
+                conn?.handler?.interrupt()
+                conn?.handler?.join()
+
+                conn?.socket?.close()
+
+                conn = null
+            }
         }
+
+        addMessageToLogs(getString(R.string.socket_closed, port.toString()))
+        _uiState.postValue(ClientUiState.Disconnected)
     }
 
     private fun closeSocket() {
-        conn?.let {
-            val port = conn?.port ?: 0
+        val port = conn?.port ?: 0
 
-            conn?.handler?.interrupt()
-            conn?.handler = null
+        ioViewModelScope.launch {
+            conn?.let {
+                conn?.handler?.interrupt()
+                conn?.handler?.join()
 
-            (conn?.socket as? DatagramSocket)?.send(disconnect)
-            (conn?.socket as? Closeable)?.close()
+                (conn?.socket as? DatagramSocket)?.send(disconnect)
 
-            conn = null
+                conn?.socket?.close()
 
-            addMessageToLogs(getString(R.string.socket_closed, port.toString()))
-            _uiState.postValue(ClientUiState.Disconnected)
+                conn = null
+            }
         }
+
+        addMessageToLogs(getString(R.string.socket_closed, port.toString()))
+        _uiState.postValue(ClientUiState.Disconnected)
     }
 
     private fun addMessageToLogs(message: String, type: LogType = LogType.MESSAGE) {
@@ -282,7 +313,7 @@ class ClientViewModel : BaseRXViewModel() {
     }
 
     private fun <T> MutableSharedFlow<T>.onNext(value: T) {
-        viewModelScope.launch {
+        ioViewModelScope.launch {
             this@onNext.emit(value)
         }
     }

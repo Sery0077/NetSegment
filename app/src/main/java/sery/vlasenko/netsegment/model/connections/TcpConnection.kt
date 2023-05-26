@@ -1,18 +1,8 @@
 package sery.vlasenko.netsegment.model.connections
 
-import sery.vlasenko.netsegment.utils.TimeConst
-import sery.vlasenko.netsegment.domain.socket_handlers.server.PingHandler
 import java.net.Socket
 
-class TcpConnection(socket: Socket, handler: Thread?): Connection<Socket>(socket, handler) {
-
-    companion object {
-        const val DEFAULT_TIMEOUT = 1000
-    }
-
-    init {
-        setTimeout(TimeConst.CLOSE_TIMEOUT)
-    }
+class TcpConnection(socket: Socket, handler: Thread? = null): Connection<Socket>(socket, handler) {
 
     override val ip: String?
         get() = socket.inetAddress.hostAddress
@@ -29,15 +19,14 @@ class TcpConnection(socket: Socket, handler: Thread?): Connection<Socket>(socket
     override val isClosed: Boolean
         get() = socket.isClosed
 
-    val input
-        get() = socket.getInputStream()
-
-    val output
-        get() = socket.getOutputStream()
-
     fun setTimeout(t: Int) {
         socket.soTimeout = t
     }
 
-    override fun close() = socket.close()
+    override fun close() {
+        handler?.interrupt()
+        handler?.join()
+        
+        socket.close()
+    }
 }

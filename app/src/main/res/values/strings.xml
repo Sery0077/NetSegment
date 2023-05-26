@@ -9,7 +9,8 @@
     <string name="snackbar_error">Ошибка загрузки</string>
     <string name="snackbar_action">Повторить</string>
 
-    <string name="open_tcp_socket">Открыть TCP</string>
+    <string name="open_socket">Open socket</string>
+    <string name="close_socket">Close socket</string>
     <string name="port_hint">Порт сокета</string>
     <string name="ip_getting">Получение IP</string>
     <string name="ip_getted">IP получен:</string>
@@ -18,7 +19,6 @@
 
     <string name="incorrect_port">Некорректный порт</string>
     <string name="socket_already_opened">Сокет на этом порту уже открыт</string>
-    <string name="close_tcp_socket">Закрыть TCP</string>
     <string name="socket_closed">Сокет на порту %s закрыт</string>
     <string name="socket_opened">Сокет на порту %s открыт</string>
     <string name="connect">Соединиться</string>

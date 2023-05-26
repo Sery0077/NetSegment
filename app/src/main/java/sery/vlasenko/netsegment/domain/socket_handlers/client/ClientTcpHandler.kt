@@ -4,18 +4,18 @@ import android.os.Looper
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketMeasuresAsk
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketPing
 import sery.vlasenko.netsegment.ui.client.ClientHandlerCallback
+import sery.vlasenko.netsegment.utils.TimeConst.PING_TIMEOUT
 import sery.vlasenko.netsegment.utils.toInt
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
 import java.net.SocketException
 import java.net.SocketTimeoutException
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 class ClientTcpHandler(
     private val socket: Socket,
-    val callback: (data: ClientHandlerCallback) -> Unit = {},
+    private val callback: (data: ClientHandlerCallback) -> Unit = {},
 ) : Thread() {
 
     companion object {
@@ -25,19 +25,20 @@ class ClientTcpHandler(
     private val input: InputStream = socket.getInputStream()
     private val output: OutputStream = socket.getOutputStream()
 
-    private var isWorking = AtomicBoolean(true)
-
     private val pingAnswer = TcpPacketPing(isAnswer = true).send()
     private val ping = TcpPacketPing(isAnswer = false).send()
     private val measuresAsk = TcpPacketMeasuresAsk().send()
+
+    @Volatile
+    private var isPinging = true
 
     @Volatile
     var lastTimePingSend = AtomicLong(0)
 
     private val pingInterval = 100L
 
-    private fun startPingThread() = Thread {
-        while (isWorking.get()) {
+    private val pingThread = Thread {
+        while (isPinging) {
             try {
                 synchronized(output) {
                     output.write(ping)
@@ -46,12 +47,11 @@ class ClientTcpHandler(
 
                 trySleep(pingInterval)
             } catch (e: SocketException) {
-                callback.invoke(ClientHandlerCallback.SocketClose)
+                sendCallback(ClientHandlerCallback.SocketClose)
             }
         }
     }.apply {
         isDaemon = true
-        start()
     }
 
     private fun handlePing() {
@@ -70,22 +70,26 @@ class ClientTcpHandler(
     private val packetArray = ByteArray(1500)
 
     override fun run() {
-        socket.soTimeout = 2000
-        startPingThread()
+        socket.soTimeout = PING_TIMEOUT
+        pingThread.start()
 
-        while (isWorking.get()) {
+        while (!isInterrupted) {
             try {
-                input.read(size)
+                size[0] = input.read().toByte()
+
+                if (size[0].toInt() == -1) {
+                    sendCallback(ClientHandlerCallback.SocketClose)
+                    isPinging = false
+                    break
+                }
+
+                size[1] = input.read().toByte()
 
                 val s = size.toInt()
 
                 input.read(packetArray, 0, s)
 
                 when (packetArray[0].toInt()) {
-                    -1 -> {
-                        socket.close()
-                        break
-                    }
                     1 -> {
                         synchronized(output) {
                             output.write(pingAnswer)
@@ -117,12 +121,18 @@ class ClientTcpHandler(
                     }
                 }
             } catch (e: SocketException) {
+                interrupt()
+                sendCallback(ClientHandlerCallback.SocketClose)
                 break
             } catch (e: SocketTimeoutException) {
                 sendCallback(ClientHandlerCallback.Timeout)
             }
         }
+    }
 
+    override fun interrupt() {
+        isPinging = false
+        super.interrupt()
     }
 
     private fun trySleep(s: Long) {
@@ -131,11 +141,6 @@ class ClientTcpHandler(
         } catch (e: InterruptedException) {
             currentThread().interrupt()
         }
-    }
-
-    override fun interrupt() {
-        isWorking.set(false)
-        super.interrupt()
     }
 
 }
