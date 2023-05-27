@@ -19,7 +19,7 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         val str = getString(R.string.socket_closed, 10)
         assert("Сокет на порту 10 закрыт" == str) {
-            println("Found $str")
+            
         }
     }
 

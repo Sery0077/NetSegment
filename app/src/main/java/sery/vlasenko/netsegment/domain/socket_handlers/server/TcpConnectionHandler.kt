@@ -1,6 +1,5 @@
 package sery.vlasenko.netsegment.domain.socket_handlers.server
 
-import sery.vlasenko.netsegment.utils.TimeConst.CONNECTION_TIMEOUT
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
@@ -10,7 +9,7 @@ class TcpConnectionHandler(
     private val socket: ServerSocket,
     private val onConnectionAdd: (socket: Socket) -> Unit,
     private val onClose: () -> Unit = {}
-): Thread() {
+) : Thread() {
     init {
         isDaemon = true
     }
@@ -28,8 +27,7 @@ class TcpConnectionHandler(
             } catch (e: SocketException) {
                 onClose.invoke()
                 break
-            }
-            catch (e: SocketTimeoutException) {
+            } catch (e: SocketTimeoutException) {
 
             }
         }

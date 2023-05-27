@@ -13,17 +13,16 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.R
+import sery.vlasenko.netsegment.databinding.FragmentClientBinding
+import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
 import sery.vlasenko.netsegment.ui.server.log.LogState
 import sery.vlasenko.netsegment.utils.buildSnackAndShow
-import sery.vlasenko.netsegment.utils.showToast
-import sery.vlasenko.netsegment.databinding.FragmentClientBinding
-import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.utils.disable
 import sery.vlasenko.netsegment.utils.enable
-import kotlin.math.log
+import sery.vlasenko.netsegment.utils.showToast
 
 class ClientFragment : Fragment() {
 
@@ -152,7 +151,7 @@ class ClientFragment : Fragment() {
     }
 
     private fun initViews() {
-        binding.rvLog.layoutManager = object: LinearLayoutManager(requireContext()) {
+        binding.rvLog.layoutManager = object : LinearLayoutManager(requireContext()) {
             override fun supportsPredictiveItemAnimations(): Boolean {
                 return false
             }

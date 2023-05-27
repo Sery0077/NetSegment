@@ -11,6 +11,12 @@ data class UdpPacketData(
     val data: ByteArray
 ) : NewPacket() {
 
+    override val packetDataSize: Int
+        get() = dataSize + 9
+
+    override val packetSize: Int
+        get() = dataSize
+
     override fun send(): ByteArray {
         val buffer = ByteBuffer.allocate(9 + dataSize)
 
@@ -23,12 +29,7 @@ data class UdpPacketData(
         return buffer.array()
     }
 
-    companion object : NewPacket.Factory {
-        override val packetDataSize: Int
-            get() = TODO("Not yet implemented")
-
-        override val packetSize: Int
-            get() = TODO("Not yet implemented")
+    companion object Builder : PacketBuilder {
 
         override fun fromByteArray(byteArray: ByteArray): UdpPacketData =
             UdpPacketData(
@@ -60,6 +61,6 @@ data class UdpPacketData(
 //fun main() {
 //    val pack = UdpPacketData(20, Random.Default.nextBytes(20))
 //
-//    println(pack.send().contentToString())
-//    println(UdpPacketData.fromByteArray(pack.send()))
+//    
+//    
 //}

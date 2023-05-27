@@ -1,6 +1,6 @@
 package sery.vlasenko.netsegment.model
 
-import java.util.Calendar
+import java.util.*
 
 data class LogItem(
     val time: Long = Calendar.getInstance().timeInMillis,

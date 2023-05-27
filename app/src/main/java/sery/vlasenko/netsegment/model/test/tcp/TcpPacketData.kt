@@ -1,8 +1,8 @@
 package sery.vlasenko.netsegment.model.test.tcp
 
 import sery.vlasenko.netsegment.model.test.NewPacket
+import sery.vlasenko.netsegment.model.test.TcpPacketType
 import sery.vlasenko.netsegment.utils.toByteArray
-import sery.vlasenko.netsegment.utils.toInt
 import java.nio.ByteBuffer
 
 data class TcpPacketData(
@@ -10,26 +10,27 @@ data class TcpPacketData(
     val data: ByteArray
 ) : NewPacket() {
 
+    override val packetDataSize: Int
+        get() = dataSize
+
+    override val packetSize: Int
+        get() = 2 + dataSize
+
     override fun send(): ByteArray {
-        val buffer = ByteBuffer.allocate(2 + dataSize)
+        val buffer = ByteBuffer.allocate(packetSize)
 
         buffer.put(dataSize.toByteArray())
+        buffer.put(TcpPacketType.DATA.firstByte)
         buffer.put(data)
 
         return buffer.array()
     }
 
-    companion object : NewPacket.Factory {
-        override val packetDataSize: Int
-            get() = TODO("Not yet implemented")
-
-        override val packetSize: Int
-            get() = TODO("Not yet implemented")
-
+    companion object Builder : PacketBuilder {
         override fun fromByteArray(byteArray: ByteArray): TcpPacketData =
             TcpPacketData(
-                dataSize = byteArray.sliceArray(0..1).toInt(),
-                data = byteArray.sliceArray(2..byteArray.lastIndex)
+                dataSize = byteArray.size,
+                data = byteArray.sliceArray(1..byteArray.lastIndex)
             )
     }
 

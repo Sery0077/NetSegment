@@ -2,7 +2,7 @@ package sery.vlasenko.netsegment.model.connections
 
 import java.io.Closeable
 
-abstract class Connection<T: Closeable>(val socket: T, var handler: Thread?  = null) {
+abstract class Connection<T : Closeable>(val socket: T, var handler: Thread? = null) {
     abstract val ip: String?
     abstract val port: Int
     abstract val isConnected: Boolean

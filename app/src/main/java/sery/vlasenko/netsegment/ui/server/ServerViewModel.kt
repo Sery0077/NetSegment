@@ -6,7 +6,6 @@ import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.kotlin.subscribeBy
 import io.reactivex.rxjava3.schedulers.Schedulers
 import kotlinx.coroutines.launch
-import okhttp3.internal.closeQuietly
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
 import sery.vlasenko.netsegment.domain.socket_handlers.server.*
@@ -16,13 +15,9 @@ import sery.vlasenko.netsegment.model.connections.Connection
 import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.model.connections.TcpConnection
 import sery.vlasenko.netsegment.model.connections.UdpConnection
-import sery.vlasenko.netsegment.model.test.Packet
-import sery.vlasenko.netsegment.model.test.TestResult
 import sery.vlasenko.netsegment.model.test.udp.UdpPacketDisconnect
-import sery.vlasenko.netsegment.model.testscripts.TestItem
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
-import sery.vlasenko.netsegment.utils.PacketType
 import sery.vlasenko.netsegment.utils.ResourceProvider
 import sery.vlasenko.netsegment.utils.Scripts
 import sery.vlasenko.netsegment.utils.datagramPacketFromArray
@@ -101,12 +96,6 @@ class ServerViewModel : BaseRXViewModel() {
         socketClosed(port.toString())
     }
 
-    private fun getPingHandler(socket: Socket): ServerTcpPingHandler {
-        return ServerTcpPingHandler(socket) {
-            handlePing(it)
-        }
-    }
-
     private fun handlePing(callback: ServerPingHandlerCallback) {
         when (callback) {
             is ServerPingHandlerCallback.PingGet -> {
@@ -137,7 +126,6 @@ class ServerViewModel : BaseRXViewModel() {
             is TcpConnection -> {
                 ioViewModelScope.launch {
                     conn?.close()
-
                     conn = null
 
                     tcpConnectionHandler = getTcpConnectionHandler()
@@ -145,67 +133,80 @@ class ServerViewModel : BaseRXViewModel() {
             }
         }
 
-        println("fefe on close")
-
         _connItem.postValue(null)
     }
 
-    fun onStartTestClick(pos: Int) {
-//        conn?.handler?.interrupt()
-//        conn?.handler = null
-
-//        val testHandler = conn.socket
-//            ?.let { socket ->
-//                getTestHandler(
-//                    socket as Socket,
-//                    onPacketReceived = { packet ->
-//                        (packet as? PacketData)?.let {
-//                            val ping = Calendar.getInstance().timeInMillis - it.time
-//
-//                            updateConnectionItem(pos, connectionItems[pos].copyStartTest())
-//                            addLog(
-//                                pos,
-//                                "Packet received. Ping $ping. Data size ${it.dataSize}"
-//                            )
-//                        }
-//                    },
-//                    onUnknownPacketType = {
-//                        addLog(pos, "Unknown packet", LogType.ERROR)
-//                    },
-//                    onClose = {
-//                        updateConnectionItem(pos, connectionItems[pos].copyStopTestWithResult())
-//                        addLog(pos, "Test end: client disconnect.")
-//                    },
-//                    onTestEnd = { testResult ->
-//                        testResults[conn] = testResult
-//
-//                        updateConnectionItem(pos, connectionItems[pos].copyStopTestWithResult())
-//                        addLog(pos, "Test end: success")
-//                    }
-//                )
-//            }
-//            ?: return
-//
-//        conn.handler = testHandler
-//        conn.handler?.start()
+    private fun handleTestCallback(callback: ServerTestCallback) {
+        when (callback) {
+            is ServerTestCallback.MeasuresEnd -> {
+                addLog("Test end")
+                startPing()
+            }
+            ServerTestCallback.MeasuresStart -> {
+                addLog("Test start")
+            }
+            ServerTestCallback.MeasuresStartFailed -> {
+                addLog("Client don't start test")
+                startPing()
+            }
+            ServerTestCallback.SocketClose -> {
+                onCloseConnection()
+            }
+            is ServerTestCallback.PingGet -> {
+                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet(callback.ping))
+            }
+        }
     }
 
-    private fun getTestHandler(
-        socket: Socket,
-        script: List<TestItem> = Scripts.testScript,
-        onPacketReceived: (packet: Packet) -> Unit,
-        onUnknownPacketType: (packetType: PacketType) -> Unit,
-        onClose: () -> Unit,
-        onTestEnd: (testResult: TestResult) -> Unit,
-    ): TestHandler {
-        return TestHandler(
-            socket = socket,
-            script = script,
-            onPacketReceived = onPacketReceived,
-            onUnknownPacketType = onUnknownPacketType,
-            onClose = onClose,
-            onTestEnd = onTestEnd
+    private fun getTcpTestHandler(connection: TcpConnection): TcpMeasuresHandler =
+        TcpMeasuresHandler(
+            socket = connection.socket,
+            testScript = Scripts.testScript,
+            callback = this::handleTestCallback
         )
+
+    private fun getUdpTestHandler(connection: UdpConnection): UdpMeasuresHandler =
+        UdpMeasuresHandler(
+            socket = connection.socket,
+            callbackHandler = this::handleTestCallback
+        )
+
+    private fun startTcpTest(connection: TcpConnection) {
+        connection.handler?.interrupt()
+        connection.handler?.join()
+
+        connection.handler = null
+
+        connection.handler = getTcpTestHandler(connection).apply {
+            start()
+        }
+    }
+
+    private fun startUdpTest(connection: UdpConnection) {
+        connection.handler?.interrupt()
+        connection.handler?.join()
+
+        connection.handler = null
+
+        connection.handler = getUdpTestHandler(connection).apply {
+            start()
+        }
+    }
+
+    fun onStartTestClick() {
+        ioViewModelScope.launch {
+            conn?.let { conn ->
+                when (conn) {
+                    is TcpConnection -> {
+                        startTcpTest(conn)
+                    }
+                    is UdpConnection -> {
+                        startUdpTest(conn)
+                    }
+                }
+
+            } ?: throw IllegalStateException("Failed to start test: connection is null")
+        }
     }
 
     private fun addLog(
@@ -217,7 +218,7 @@ class ServerViewModel : BaseRXViewModel() {
         _singleEvent.postValue(SingleEvent.ConnEvent.AddLog(_logs.lastIndex))
     }
 
-    fun onStopTestClick(pos: Int) {
+    fun onStopTestClick() {
 //        conn?.handler?.interrupt()
 //        conn?.handler = null
 //
@@ -298,6 +299,32 @@ class ServerViewModel : BaseRXViewModel() {
                 ServerTcpPingHandler(socket, this@ServerViewModel::handlePing).apply { start() })
 
             _connItem.postValue(ConnectionItem.of(conn!!))
+        }
+    }
+
+    private fun startPing() {
+        ioViewModelScope.launch {
+            conn?.handler?.interrupt()
+            conn?.handler?.join()
+
+            (conn as? UdpConnection)?.let { conn ->
+                conn.handler = ServerUdpPingHandler(
+                    conn.socket,
+                    callback = this@ServerViewModel::handlePing
+                ).apply {
+                    start()
+                }
+                return@launch
+            }
+
+            (conn as? TcpConnection)?.let { conn ->
+                conn.handler = ServerTcpPingHandler(
+                    conn.socket,
+                    callback = this@ServerViewModel::handlePing
+                ).apply {
+                    start()
+                }
+            }
         }
     }
 

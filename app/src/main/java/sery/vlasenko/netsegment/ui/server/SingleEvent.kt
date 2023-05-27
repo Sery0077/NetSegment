@@ -1,8 +1,5 @@
 package sery.vlasenko.netsegment.ui.server
 
-import sery.vlasenko.netsegment.model.LogItem
-import sery.vlasenko.netsegment.model.LogType
-
 sealed class SingleEvent {
     class ShowToastEvent(val msg: String) : SingleEvent()
 

@@ -10,7 +10,6 @@ import java.io.OutputStream
 import java.net.Socket
 import java.net.SocketException
 import java.net.SocketTimeoutException
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 class ServerTcpPingHandler(
@@ -73,22 +72,27 @@ class ServerTcpPingHandler(
         }
 
     override fun run() {
+        println("fefe ping run")
         socket.soTimeout = TimeConst.PING_TIMEOUT
         pingThread.start()
 
         while (!isInterrupted) {
             try {
-                input.read(size)
+                size[0] = input.read().toByte()
+
+                if (size[0].toInt() == -1) {
+                    sendCallback(ServerPingHandlerCallback.ConnectionClose)
+                    interrupt()
+                    break
+                }
+
+                size[1] = input.read().toByte()
 
                 val s = size.toInt()
 
                 input.read(packetArray, 0, s)
 
                 when (packetArray[0].toInt()) {
-                    -1 -> {
-                        sendCallback(ServerPingHandlerCallback.ConnectionClose)
-                        interrupt()
-                    }
                     1 -> {
                         synchronized(output) {
                             output.write(pingAnswer)

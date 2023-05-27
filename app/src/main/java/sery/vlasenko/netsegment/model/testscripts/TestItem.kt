@@ -1,7 +1,6 @@
 package sery.vlasenko.netsegment.model.testscripts
 
 import sery.vlasenko.netsegment.utils.PacketType
-import sery.vlasenko.netsegment.utils.TimeConst
 
 data class TestItem(
     val packetType: PacketType,

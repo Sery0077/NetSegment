@@ -27,7 +27,7 @@ object PacketFactory {
     }
 
     private fun getPacketConnectAnswer(t: Long?): Packet {
-        return if (t == null ) PacketConnectAnswer() else PacketConnectAnswer(t)
+        return if (t == null) PacketConnectAnswer() else PacketConnectAnswer(t)
     }
 
     private fun getPacketConnect(): Packet {
@@ -36,7 +36,7 @@ object PacketFactory {
 
     fun getPacketPing(): PacketPing = PacketPing()
     fun getPacketPingAnswer(t: Long?): PacketPingAnswer {
-        return if (t == null ) PacketPingAnswer(isAnswer = true) else PacketPingAnswer(t, true)
+        return if (t == null) PacketPingAnswer(isAnswer = true) else PacketPingAnswer(t, true)
     }
 
     fun getPacketData(dataSize: Int, data: ByteArray = ByteArray(dataSize)): PacketData {

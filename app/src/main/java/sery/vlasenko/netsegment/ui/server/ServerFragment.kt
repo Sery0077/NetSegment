@@ -10,10 +10,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.databinding.FragmentServerBinding
-import sery.vlasenko.netsegment.model.connections.Connection
-import sery.vlasenko.netsegment.model.connections.ConnectionState
 import sery.vlasenko.netsegment.model.connections.Protocol
-import sery.vlasenko.netsegment.ui.server.connections.ConnectionAdapter
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItemState
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
@@ -21,7 +18,7 @@ import sery.vlasenko.netsegment.utils.*
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
-class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
+class ServerFragment : Fragment() {
 
     companion object {
         fun newInstance() = ServerFragment()
@@ -165,6 +162,14 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
         binding.btnClose.setOnClickListener {
             viewModel.onCloseSocketClicked()
         }
+
+        binding.connBtnStartTest.setOnClickListener {
+            viewModel.onStartTestClick()
+        }
+
+        binding.connBtnStopTest.setOnClickListener {
+            viewModel.onStopTestClick()
+        }
     }
 
     private fun handleProtocol(): Protocol {
@@ -207,18 +212,6 @@ class ServerFragment : Fragment(), ConnectionAdapter.ClickListener {
 
             }
         }
-    }
-
-    override fun onStartTestClick(pos: Int) {
-        viewModel.onStartTestClick(pos)
-    }
-
-    override fun onStopTestClick(pos: Int) {
-        viewModel.onStopTestClick(pos)
-    }
-
-    override fun onResultClick(pos: Int) {
-        viewModel.onResultClick(pos)
     }
 
 }

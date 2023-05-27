@@ -48,7 +48,7 @@ class ClientUdpHandler(
                         lastTimePingSend.set(System.currentTimeMillis())
                     }
                     2 -> {
-                        println("client ping")
+
                         handlePing()
                     }
                     4 -> {

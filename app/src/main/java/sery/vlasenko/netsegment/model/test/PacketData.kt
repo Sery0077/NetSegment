@@ -8,7 +8,7 @@ class PacketData(
     time: Long = Calendar.getInstance().timeInMillis,
     val dataSize: Int = 50,
     val data: ByteArray,
-): Packet(time) {
+) : Packet(time) {
 
     override fun send(): ByteArray {
         val buffer = ByteBuffer.allocate(packetSize + dataSize)
@@ -42,7 +42,7 @@ class PacketData(
         return result
     }
 
-    companion object: Factory {
+    companion object : Factory {
         private const val TIME_SIZE = 8
 
         override val packetDataSize: Int

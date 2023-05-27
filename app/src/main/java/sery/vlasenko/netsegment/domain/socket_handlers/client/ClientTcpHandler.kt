@@ -1,11 +1,13 @@
 package sery.vlasenko.netsegment.domain.socket_handlers.client
 
 import android.os.Looper
+import sery.vlasenko.netsegment.model.test.TcpPacketType
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketMeasuresAsk
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketPing
 import sery.vlasenko.netsegment.ui.client.ClientHandlerCallback
 import sery.vlasenko.netsegment.utils.TimeConst.PING_TIMEOUT
 import sery.vlasenko.netsegment.utils.toInt
+import sery.vlasenko.netsegment.utils.writeAndFlush
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
@@ -89,24 +91,24 @@ class ClientTcpHandler(
 
                 input.read(packetArray, 0, s)
 
-                when (packetArray[0].toInt()) {
-                    1 -> {
+                when (packetArray[0]) {
+                    TcpPacketType.PING.firstByte -> {
                         synchronized(output) {
-                            output.write(pingAnswer)
+                            output.writeAndFlush(pingAnswer)
                         }
                     }
-                    2 -> {
+                    TcpPacketType.PING_ANSWER.firstByte -> {
                         handlePing()
                     }
-                    4 -> {
-                        when (packetArray[1].toInt()) {
-                            1 -> {
+                    TcpPacketType.MEASURES_ASK.firstByte -> {
+                        when (packetArray[1]) {
+                            TcpPacketType.MEASURES_ASK.secondByte -> {
                                 synchronized(output) {
-                                    output.write(measuresAsk)
+                                    output.writeAndFlush(measuresAsk)
                                 }
                                 sendCallback(ClientHandlerCallback.MeasuresStart)
                             }
-                            11 -> {
+                            TcpPacketType.MEASURES_END.secondByte -> {
                                 sendCallback(ClientHandlerCallback.MeasuresEnd)
                             }
                         }

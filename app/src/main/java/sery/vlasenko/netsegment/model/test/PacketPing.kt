@@ -22,7 +22,7 @@ class PacketPing(
         return buffer.array()
     }
 
-    companion object: Factory {
+    companion object : Factory {
         private const val IS_ANSWER_SIZE = 1
         private const val TIME_SIZE = 8
 

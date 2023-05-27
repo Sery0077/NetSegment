@@ -70,7 +70,7 @@ class ServerUdpPingHandler(
                         socket.send(pingAnswer)
                     }
                     2 -> {
-                        println("server ping")
+
                         handlePing()
 
                         trySleep(1000)
@@ -78,7 +78,7 @@ class ServerUdpPingHandler(
                         sendPing()
                     }
                     7 -> {
-                        println("fefe")
+
                         sendCallback(ServerPingHandlerCallback.ConnectionClose)
                     }
                 }

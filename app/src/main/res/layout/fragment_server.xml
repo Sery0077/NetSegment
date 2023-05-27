@@ -125,7 +125,7 @@
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/connection"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="700dp"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/btn_close">
 
@@ -261,12 +261,13 @@
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/conn_rv_logs"
                     android:layout_width="match_parent"
-                    android:layout_height="200dp"
+                    android:layout_height="0dp"
                     android:layout_marginTop="4dp"
                     app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/barrier2"
+                    app:layout_constraintBottom_toBottomOf="parent"
                     tools:itemCount="10" />
 
             </androidx.constraintlayout.widget.ConstraintLayout>

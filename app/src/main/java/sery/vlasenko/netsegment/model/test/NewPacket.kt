@@ -3,9 +3,6 @@ package sery.vlasenko.netsegment.model.test
 abstract class NewPacket {
     companion object {
         @JvmStatic
-        protected val headerByte: Byte = 99
-
-        @JvmStatic
         protected val headerSize = 1
 
         @JvmStatic
@@ -17,9 +14,11 @@ abstract class NewPacket {
 
     abstract fun send(): ByteArray
 
-    interface Factory {
-        val packetDataSize: Int
-        val packetSize: Int
+    abstract val packetDataSize: Int
+    abstract val packetSize: Int
+
+    interface PacketBuilder {
         fun fromByteArray(byteArray: ByteArray): NewPacket
     }
+
 }
