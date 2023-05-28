@@ -2,7 +2,7 @@ package sery.vlasenko.netsegment.model.connections
 
 import java.net.Socket
 
-class TcpConnection(socket: Socket, handler: Thread? = null) : Connection<Socket>(socket, handler) {
+class TcpConnection(socket: Socket, handler: Thread) : Connection<Socket>(socket, handler) {
 
     override val ip: String?
         get() = socket.inetAddress.hostAddress
@@ -19,14 +19,8 @@ class TcpConnection(socket: Socket, handler: Thread? = null) : Connection<Socket
     override val isClosed: Boolean
         get() = socket.isClosed
 
-    fun setTimeout(t: Int) {
-        socket.soTimeout = t
-    }
-
     override fun close() {
-        handler?.interrupt()
-        handler?.join()
-
+        interruptHandler()
         socket.close()
     }
 }

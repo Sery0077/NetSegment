@@ -1,8 +1,10 @@
 package sery.vlasenko.netsegment.model.connections
 
+import sery.vlasenko.netsegment.model.test.udp.UdpPacketDisconnect
+import sery.vlasenko.netsegment.utils.datagramPacketFromArray
 import java.net.DatagramSocket
 
-class UdpConnection(socket: DatagramSocket, handler: Thread? = null) :
+class UdpConnection(socket: DatagramSocket, handler: Thread) :
     Connection<DatagramSocket>(socket, handler) {
 
     override val ip: String
@@ -21,7 +23,10 @@ class UdpConnection(socket: DatagramSocket, handler: Thread? = null) :
         get() = socket.isClosed
 
     override fun close() {
-        handler?.interrupt()
-        handler?.join()
+        if (socket.isConnected) {
+            socket.send(datagramPacketFromArray(UdpPacketDisconnect().send()))
+        }
+
+        interruptHandler()
     }
 }

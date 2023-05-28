@@ -21,12 +21,10 @@ import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.model.connections.TcpConnection
 import sery.vlasenko.netsegment.model.connections.UdpConnection
 import sery.vlasenko.netsegment.model.test.TestResult
-import sery.vlasenko.netsegment.model.test.udp.UdpPacketDisconnect
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
 import sery.vlasenko.netsegment.utils.ResourceProvider
 import sery.vlasenko.netsegment.utils.Scripts
-import sery.vlasenko.netsegment.utils.datagramPacketFromArray
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.ServerSocket
@@ -41,7 +39,7 @@ class ServerViewModel : BaseRXViewModel() {
 
     private val _connItem: MutableLiveData<ConnectionItem?> = MutableLiveData(null)
     val connItem: LiveData<ConnectionItem?>
-        get() = this._connItem
+        get() = _connItem
 
     private val _uiState: MutableLiveData<ServerButtonState> = MutableLiveData()
     val uiState: LiveData<ServerButtonState>
@@ -125,12 +123,12 @@ class ServerViewModel : BaseRXViewModel() {
         when (conn) {
             is UdpConnection -> {
                 ioViewModelScope.launch {
-                    conn?.close()
+                    conn?.interruptHandler()
                     conn = null
 
                     udpSocket?.let { udpSocket ->
                         udpSocket.disconnect()
-                        udpConnectionHandler = getUdpConnectionHandler(udpSocket).apply { start() }
+                        startListenUdpConnection(udpSocket)
                     }
                 }
             }
@@ -139,9 +137,8 @@ class ServerViewModel : BaseRXViewModel() {
                     conn?.close()
                     conn = null
 
-                    tcpSocket?.let { serverSocket ->
-                        tcpConnectionHandler =
-                            getTcpConnectionHandler(serverSocket).apply { start() }
+                    tcpSocket?.let { tcpSocket ->
+                        startListenTcpConnection(tcpSocket)
                     }
                 }
             }
@@ -155,11 +152,12 @@ class ServerViewModel : BaseRXViewModel() {
     private fun handleTestCallback(callback: ServerTestCallback) {
         when (callback) {
             is ServerTestCallback.MeasuresEnd -> {
-                _connItem.postValue(connItem.value!!.copyResultAvailable())
+                _connItem.postValue(connItem.value?.copyResultAvailable())
 
                 testResult =
                     if (testResult == null) callback.result else testResult?.append(callback.result)
 
+                _connItem.postValue(_connItem.value?.copyStopTestWithResult())
                 addLog("Test end")
                 startPing()
             }
@@ -167,6 +165,7 @@ class ServerViewModel : BaseRXViewModel() {
                 addLog("Test start")
             }
             ServerTestCallback.MeasuresStartFailed -> {
+                _connItem.postValue(_connItem.value?.copyStopTest())
                 addLog("Client don't start test")
                 startPing()
             }
@@ -203,41 +202,28 @@ class ServerViewModel : BaseRXViewModel() {
 
     private fun startTcpTest(connection: TcpConnection, iterationCount: Int) {
         ioViewModelScope.launch {
-            connection.handler?.interrupt()
-            connection.handler?.join()
-
-            connection.handler = null
-
-            connection.handler = getTcpTestHandler(connection, iterationCount).apply {
-                start()
-            }
+            connection.setAndStartNewHandler(getTcpTestHandler(connection, iterationCount))
         }
     }
 
     private fun startUdpTest(connection: UdpConnection, iterationCount: Int) {
         ioViewModelScope.launch {
-            connection.handler?.interrupt()
-            connection.handler?.join()
-
-            connection.handler = null
-
-            connection.handler = getUdpTestHandler(connection, iterationCount).apply {
-                start()
-            }
+            connection.setAndStartNewHandler(getUdpTestHandler(connection, iterationCount))
         }
     }
 
     fun onStartTestClick(iterationCount: Int) {
         conn?.let { conn ->
-                when (conn) {
-                    is TcpConnection -> {
-                        startTcpTest(conn, iterationCount)
-                    }
-                    is UdpConnection -> {
-                        startUdpTest(conn, iterationCount)
-                    }
+            _connItem.postValue(_connItem.value?.copyStartTest())
+            when (conn) {
+                is TcpConnection -> {
+                    startTcpTest(conn, iterationCount)
+                }
+                is UdpConnection -> {
+                    startUdpTest(conn, iterationCount)
                 }
             }
+        }
             ?: throw IllegalStateException("Failed to start test: connection is null")
     }
 
@@ -251,7 +237,6 @@ class ServerViewModel : BaseRXViewModel() {
     }
 
     fun onStopTestClick() {
-
 //        conn?.handler?.interrupt()
 //        conn?.handler = null
 //
@@ -279,12 +264,23 @@ class ServerViewModel : BaseRXViewModel() {
         }
 
         udpSocket = DatagramSocket(port.toInt())
-        udpConnectionHandler = getUdpConnectionHandler(udpSocket!!).apply { }
+            .also {
+                startListenUdpConnection(it)
+            }
+
 
         _singleEvent.value = SingleEvent.ShowToastEvent(getString(R.string.socket_opened))
 
         this.port = port.toInt()
         socketOpened(port)
+    }
+
+    private fun startListenUdpConnection(udpSocket: DatagramSocket) {
+        udpConnectionHandler = getUdpConnectionHandler(udpSocket).apply { start() }
+    }
+
+    private fun startListenTcpConnection(tcpSocket: ServerSocket) {
+        tcpConnectionHandler = getTcpConnectionHandler(tcpSocket).apply { start() }
     }
 
     private fun getUdpConnectionHandler(socket: DatagramSocket): ServerUdpConnectionHandler {
@@ -293,6 +289,18 @@ class ServerViewModel : BaseRXViewModel() {
             onConnectAdd = this::onAddConnection
         )
     }
+
+    private fun getUdpPingHandler(socket: DatagramSocket): ServerUdpPingHandler =
+        ServerUdpPingHandler(
+            socket = socket,
+            callback = this::handlePing
+        )
+
+    private fun getTcpPingHandler(socket: Socket): ServerTcpPingHandler =
+        ServerTcpPingHandler(
+            socket = socket,
+            callback = this::handlePing
+        )
 
     private fun onAddConnection(dp: DatagramPacket) {
         ioViewModelScope.launch {
@@ -305,10 +313,10 @@ class ServerViewModel : BaseRXViewModel() {
 
                 conn = UdpConnection(
                     socket,
-                    ServerUdpPingHandler(socket, this@ServerViewModel::handlePing).apply { start() }
-                )
-
-                _connItem.postValue(ConnectionItem.of(conn!!))
+                    getUdpPingHandler(socket).apply { start() }
+                ).also {
+                    _connItem.postValue(ConnectionItem.of(it))
+                }
             }
         }
     }
@@ -319,19 +327,15 @@ class ServerViewModel : BaseRXViewModel() {
 
             conn = TcpConnection(
                 socket,
-                ServerTcpPingHandler(socket, this@ServerViewModel::handlePing).apply { start() })
-
-            _connItem.postValue(ConnectionItem.of(conn!!))
+                getTcpPingHandler(socket).apply { start() }
+            ).also {
+                _connItem.postValue(ConnectionItem.of(it))
+            }
         }
     }
 
     private fun startPing() {
         ioViewModelScope.launch {
-            conn?.handler?.run {
-                interrupt()
-                join()
-            }
-
             (conn as? UdpConnection)?.let { conn ->
                 startUdpPing(conn)
                 return@launch
@@ -344,21 +348,11 @@ class ServerViewModel : BaseRXViewModel() {
     }
 
     private fun startUdpPing(conn: UdpConnection) {
-        conn.handler = ServerUdpPingHandler(
-            socket = conn.socket,
-            callback = this::handlePing
-        ).apply {
-            start()
-        }
+        conn.setAndStartNewHandler(getUdpPingHandler(conn.socket))
     }
 
     private fun startTcpPing(conn: TcpConnection) {
-        conn.handler = ServerTcpPingHandler(
-            socket = conn.socket,
-            callback = this::handlePing
-        ).apply {
-            start()
-        }
+        conn.setAndStartNewHandler(getTcpPingHandler(conn.socket))
     }
 
     // TODO --- TCP ---
@@ -385,8 +379,8 @@ class ServerViewModel : BaseRXViewModel() {
             return
         }
 
-        tcpSocket = ServerSocket(port.toInt()).also {
-            getTcpConnectionHandler(it).apply { start() }
+        tcpSocket = ServerSocket(port.toInt()).also { tcpSocket ->
+            startListenTcpConnection(tcpSocket)
         }
 
         this.port = port.toInt()
@@ -408,10 +402,6 @@ class ServerViewModel : BaseRXViewModel() {
 
     private fun closeUdpSocket() {
         ioViewModelScope.launch {
-            if (udpSocket?.isConnected == true) {
-                udpSocket?.send(datagramPacketFromArray(UdpPacketDisconnect().send()))
-            }
-
             conn?.close()
 
             udpConnectionHandler?.interrupt()
