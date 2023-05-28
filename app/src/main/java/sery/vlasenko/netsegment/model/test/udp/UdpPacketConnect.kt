@@ -1,10 +1,10 @@
 package sery.vlasenko.netsegment.model.test.udp
 
-import sery.vlasenko.netsegment.model.test.NewPacket
+import sery.vlasenko.netsegment.model.test.Packet
 
 class UdpPacketConnect(
     val isAnswer: Boolean,
-) : NewPacket() {
+) : Packet() {
 
     override val packetDataSize: Int
         get() = 0
@@ -20,7 +20,7 @@ class UdpPacketConnect(
 
     companion object Builder : PacketBuilder {
 
-        val packetSize = 5
+        const val packetSize = 5
 
         override fun fromByteArray(byteArray: ByteArray): UdpPacketConnect =
             UdpPacketConnect(isAnswer = byteArray[0].toInt() == 6)

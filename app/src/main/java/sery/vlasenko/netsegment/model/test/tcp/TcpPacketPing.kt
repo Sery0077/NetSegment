@@ -1,10 +1,10 @@
 package sery.vlasenko.netsegment.model.test.tcp
 
-import sery.vlasenko.netsegment.model.test.NewPacket
+import sery.vlasenko.netsegment.model.test.Packet
 
 class TcpPacketPing(
     val isAnswer: Boolean = false
-) : NewPacket() {
+) : Packet() {
 
     override val packetDataSize: Int
         get() = 9

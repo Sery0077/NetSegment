@@ -4,6 +4,7 @@ import java.net.DatagramSocket
 
 class UdpConnection(socket: DatagramSocket, handler: Thread? = null) :
     Connection<DatagramSocket>(socket, handler) {
+
     override val ip: String
         get() = socket.inetAddress?.hostAddress ?: ""
 
@@ -22,7 +23,5 @@ class UdpConnection(socket: DatagramSocket, handler: Thread? = null) :
     override fun close() {
         handler?.interrupt()
         handler?.join()
-
-//        socket.close()
     }
 }

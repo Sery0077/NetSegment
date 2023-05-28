@@ -1,14 +1,13 @@
 package sery.vlasenko.netsegment.model.test.tcp
 
-import sery.vlasenko.netsegment.model.test.NewPacket
-import sery.vlasenko.netsegment.model.test.TcpPacketType
-import sery.vlasenko.netsegment.utils.toByteArray
+import sery.vlasenko.netsegment.model.test.Packet
+import sery.vlasenko.netsegment.utils.extensions.toByteArray
 import java.nio.ByteBuffer
 
 data class TcpPacketData(
     val dataSize: Int,
     val data: ByteArray
-) : NewPacket() {
+) : Packet() {
 
     override val packetDataSize: Int
         get() = dataSize

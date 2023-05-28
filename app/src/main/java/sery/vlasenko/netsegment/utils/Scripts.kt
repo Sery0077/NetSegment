@@ -6,39 +6,34 @@ object Scripts {
 
     val testScript = listOf(
         TestItem(
-            packetType = PacketType.DATA,
             packetCount = 20,
-            dataSize = 72,
-            timeout = TimeConst.DEFAULT_TIMEOUT,
+            dataSize = 70,
+            timeout = Timeouts.DEFAULT_TIMEOUT,
             delay = 500L
         ),
         TestItem(
-            packetType = PacketType.DATA,
             packetCount = 20,
             dataSize = 130,
-            timeout = TimeConst.DEFAULT_TIMEOUT,
+            timeout = Timeouts.DEFAULT_TIMEOUT,
             delay = 500L
         ),
 
         TestItem(
-            packetType = PacketType.DATA,
             packetCount = 20,
             dataSize = 180,
-            timeout = TimeConst.DEFAULT_TIMEOUT,
+            timeout = Timeouts.DEFAULT_TIMEOUT,
             delay = 500L
         ),
         TestItem(
-            packetType = PacketType.DATA,
             packetCount = 20,
             dataSize = 250,
-            timeout = TimeConst.DEFAULT_TIMEOUT,
+            timeout = Timeouts.DEFAULT_TIMEOUT,
             delay = 500L
         ),
         TestItem(
-            packetType = PacketType.DATA,
             packetCount = 20,
             dataSize = 300,
-            timeout = TimeConst.DEFAULT_TIMEOUT,
+            timeout = Timeouts.DEFAULT_TIMEOUT,
             delay = 500L
         ),
     )

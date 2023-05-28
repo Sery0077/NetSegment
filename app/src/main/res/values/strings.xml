@@ -37,4 +37,5 @@
     <string name="measures_end">Measures end</string>
     <string name="exception">Expcetion: %s</string>
     <string name="client_disconnect">Client disconnect</string>
+    <string name="count_iterations">Iteration count</string>
 </resources>

@@ -1,21 +1,23 @@
-package sery.vlasenko.netsegment.domain.socket_handlers.server
+package sery.vlasenko.netsegment.domain.socket_handlers.server.tcp
 
 import android.os.Looper
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketPing
+import sery.vlasenko.netsegment.model.test.tcp.TcpPacketType
 import sery.vlasenko.netsegment.ui.server.ServerPingHandlerCallback
-import sery.vlasenko.netsegment.utils.TimeConst
-import sery.vlasenko.netsegment.utils.toInt
+import sery.vlasenko.netsegment.utils.MyThread
+import sery.vlasenko.netsegment.utils.Timeouts
+import sery.vlasenko.netsegment.utils.extensions.synchronizedWrite
+import sery.vlasenko.netsegment.utils.extensions.toInt
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
 import java.net.SocketException
 import java.net.SocketTimeoutException
-import java.util.concurrent.atomic.AtomicLong
 
 class ServerTcpPingHandler(
     private val socket: Socket,
     private val callback: (data: ServerPingHandlerCallback) -> Unit = {},
-) : Thread() {
+) : MyThread() {
 
     private val input: InputStream = socket.getInputStream()
     private val output: OutputStream = socket.getOutputStream()
@@ -24,45 +26,18 @@ class ServerTcpPingHandler(
         private val TAG = ServerTcpPingHandler::class.java.simpleName
     }
 
-    init {
-        isDaemon = true
-    }
-
     private val size = ByteArray(2)
     private val packetArray = ByteArray(1500)
 
     private val pingAnswer = TcpPacketPing(isAnswer = true).send()
-    private val ping = TcpPacketPing(isAnswer = false).send()
 
-    @Volatile
-    private var isPinging = true
-
-    @Volatile
-    var lastTimePingSend = AtomicLong(0)
-
-    private val pingInterval = 100L
-
-    private val pingThread = Thread {
-        while (isPinging) {
-            try {
-                synchronized(output) {
-                    output.write(ping)
-                    lastTimePingSend.set(System.currentTimeMillis())
-                }
-
-                trySleep(pingInterval)
-            } catch (e: SocketException) {
-                sendCallback(ServerPingHandlerCallback.ConnectionClose)
-                interrupt()
-            }
-        }
-    }.apply {
-        isDaemon = true
+    private val pingThread = ServerTcpPingThread(output) {
+        sendCallback(ServerPingHandlerCallback.ConnectionClose)
+        interrupt()
     }
 
     private fun handlePing() {
-        val ping = System.currentTimeMillis() - lastTimePingSend.get()
-
+        val ping = System.nanoTime() - pingThread.lastTimePingSend.get()
         sendCallback(ServerPingHandlerCallback.PingGet(ping))
     }
 
@@ -72,13 +47,13 @@ class ServerTcpPingHandler(
         }
 
     override fun run() {
-        println("fefe ping run")
-        socket.soTimeout = TimeConst.PING_TIMEOUT
+        socket.soTimeout = Timeouts.PING_TIMEOUT
+
         pingThread.start()
 
         while (!isInterrupted) {
             try {
-                size[0] = input.read().toByte()
+                input.read(size)
 
                 if (size[0].toInt() == -1) {
                     sendCallback(ServerPingHandlerCallback.ConnectionClose)
@@ -86,41 +61,28 @@ class ServerTcpPingHandler(
                     break
                 }
 
-                size[1] = input.read().toByte()
+                input.read(packetArray, 0, size.toInt())
 
-                val s = size.toInt()
-
-                input.read(packetArray, 0, s)
-
-                when (packetArray[0].toInt()) {
-                    1 -> {
-                        synchronized(output) {
-                            output.write(pingAnswer)
-                        }
+                when (packetArray[0]) {
+                    TcpPacketType.PING.firstByte -> {
+                        output.synchronizedWrite(pingAnswer)
                     }
-                    2 -> {
+                    TcpPacketType.PING_ANSWER.firstByte -> {
                         handlePing()
                     }
                 }
             } catch (e: SocketException) {
                 sendCallback(ServerPingHandlerCallback.ConnectionClose)
                 interrupt()
+                break
             } catch (e: SocketTimeoutException) {
                 sendCallback(ServerPingHandlerCallback.Timeout)
             }
         }
     }
 
-    private fun trySleep(s: Long) {
-        try {
-            sleep(s)
-        } catch (e: InterruptedException) {
-            currentThread().interrupt()
-        }
-    }
-
     override fun interrupt() {
-        isPinging = false
+        pingThread.interrupt()
         super.interrupt()
     }
 

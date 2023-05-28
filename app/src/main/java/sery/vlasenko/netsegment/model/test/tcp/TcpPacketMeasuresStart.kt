@@ -1,8 +1,8 @@
 package sery.vlasenko.netsegment.model.test.tcp
 
-import sery.vlasenko.netsegment.model.test.NewPacket
+import sery.vlasenko.netsegment.model.test.Packet
 
-class TcpPacketMeasuresStart : NewPacket() {
+class TcpPacketMeasuresStart : Packet() {
 
     override val packetDataSize: Int
         get() = 5
@@ -14,6 +14,8 @@ class TcpPacketMeasuresStart : NewPacket() {
         byteArrayOf(5, 0, 4, 2, 0, 0, 0)
 
     companion object Builder : PacketBuilder {
+
+        val packetSize = 7
 
         override fun fromByteArray(byteArray: ByteArray): TcpPacketMeasuresStart =
             TcpPacketMeasuresStart()

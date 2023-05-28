@@ -4,10 +4,12 @@ import android.os.Looper
 import okio.IOException
 import sery.vlasenko.netsegment.model.test.udp.UdpPacketMeasuresAsk
 import sery.vlasenko.netsegment.model.test.udp.UdpPacketPing
+import sery.vlasenko.netsegment.model.test.udp.UdpPacketType
 import sery.vlasenko.netsegment.ui.client.ClientHandlerCallback
-import sery.vlasenko.netsegment.utils.TimeConst.PING_TIMEOUT
+import sery.vlasenko.netsegment.utils.MyThread
+import sery.vlasenko.netsegment.utils.Timeouts.PING_TIMEOUT
 import sery.vlasenko.netsegment.utils.datagramPacketFromArray
-import java.net.DatagramPacket
+import sery.vlasenko.netsegment.utils.datagramPacketFromSize
 import java.net.DatagramSocket
 import java.net.SocketException
 import java.net.SocketTimeoutException
@@ -17,53 +19,82 @@ import java.util.concurrent.atomic.AtomicLong
 class ClientUdpHandler(
     private val socket: DatagramSocket,
     private val callback: (data: ClientHandlerCallback) -> Unit = {},
-) : Thread() {
+) : MyThread() {
 
     companion object {
         private val TAG = ClientUdpHandler::class.java.simpleName
     }
 
-    private var isWorking = AtomicBoolean(true)
-
     private val pingAnswer = datagramPacketFromArray(UdpPacketPing(isAnswer = true).send())
     private val ping = datagramPacketFromArray(UdpPacketPing(isAnswer = false).send())
+
     private val measuresAsk = datagramPacketFromArray(UdpPacketMeasuresAsk().send())
 
-    private val buf = DatagramPacket(ByteArray(1500), 1500)
+    private val buf = datagramPacketFromSize(1500)
 
-    @Volatile
-    var lastTimePingSend = AtomicLong(0)
+    private val lastTimePingSend = AtomicLong(0)
+
+    private val isPinging = AtomicBoolean(true)
+
+    private val pingThread = Thread {
+        var lastTimePing = 0L
+
+        while (!isInterrupted) {
+            if (System.currentTimeMillis() - lastTimePing > 200) {
+                try {
+                    sendPing()
+                } catch (e: SocketException) {
+                    sendCallback(ClientHandlerCallback.SocketClose)
+                    interrupt()
+                }
+
+                lastTimePing = System.currentTimeMillis()
+            }
+        }
+    }
+
+    private fun sendPing() {
+        socket.send(ping)
+
+        lastTimePingSend.set(System.nanoTime())
+    }
 
     override fun run() {
         socket.soTimeout = PING_TIMEOUT
+
+        pingThread.start()
 
         while (!isInterrupted) {
             try {
                 socket.receive(buf)
 
-                when (buf.data[0].toInt()) {
-                    1 -> {
+                when (buf.data[0]) {
+                    UdpPacketType.PING.typeByte -> {
                         socket.send(pingAnswer)
-                        socket.send(ping)
-                        lastTimePingSend.set(System.currentTimeMillis())
                     }
-                    2 -> {
-
+                    UdpPacketType.PING_ANSWER.typeByte -> {
                         handlePing()
                     }
-                    4 -> {
-                        if (buf.data[5].toInt() == 1) {
-                            socket.send(measuresAsk)
-                            sendCallback(ClientHandlerCallback.MeasuresStart)
-                        } else if (buf.data[5].toInt() == 10) {
-                            sendCallback(ClientHandlerCallback.MeasuresEnd)
+                    UdpPacketType.MEASURES.typeByte -> {
+                        when (buf.data[5]) {
+                            UdpPacketType.MEASURES_ASK.subTypeByte -> {
+                                socket.send(measuresAsk)
+                            }
+                            UdpPacketType.MEASURES_START.subTypeByte -> {
+                                isPinging.set(false)
+                                sendCallback(ClientHandlerCallback.MeasuresStart)
+                            }
+                            UdpPacketType.MEASURES_END.subTypeByte -> {
+                                isPinging.set(true)
+                                sendCallback(ClientHandlerCallback.MeasuresEnd)
+                            }
                         }
                     }
-                    7 -> {
+                    UdpPacketType.DISCONNECT.typeByte -> {
                         sendCallback(ClientHandlerCallback.SocketClose)
                         interrupt()
                     }
-                    3 -> {
+                    UdpPacketType.DATA.typeByte -> {
                         socket.send(buf)
                     }
                 }
@@ -75,12 +106,14 @@ class ClientUdpHandler(
                 sendCallback(ClientHandlerCallback.Timeout)
             } catch (e: IOException) {
                 sendCallback(ClientHandlerCallback.SocketClose)
+                interrupt()
+                break
             }
         }
     }
 
     private fun handlePing() {
-        val ping = System.currentTimeMillis() - lastTimePingSend.get()
+        val ping = System.nanoTime() - lastTimePingSend.get()
 
         sendCallback(ClientHandlerCallback.PingGet(ping))
     }
@@ -92,7 +125,9 @@ class ClientUdpHandler(
     }
 
     override fun interrupt() {
-        isWorking.set(false)
+        isPinging.set(false)
+        pingThread.interrupt()
         super.interrupt()
     }
+
 }

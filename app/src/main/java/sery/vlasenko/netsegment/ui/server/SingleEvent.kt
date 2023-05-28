@@ -9,7 +9,7 @@ sealed class SingleEvent {
 
         object TestEnd : ConnEvent()
 
-        class PingGet(val ping: Long) : ConnEvent()
+        class PingGet(val ping: String) : ConnEvent()
 
         class AddLog(val pos: Int) : ConnEvent()
 

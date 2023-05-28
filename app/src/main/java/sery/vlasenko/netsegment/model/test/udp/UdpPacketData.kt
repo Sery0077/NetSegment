@@ -1,15 +1,15 @@
 package sery.vlasenko.netsegment.model.test.udp
 
-import sery.vlasenko.netsegment.model.test.NewPacket
+import sery.vlasenko.netsegment.model.test.Packet
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketData
-import sery.vlasenko.netsegment.utils.toByteArray
-import sery.vlasenko.netsegment.utils.toInt
+import sery.vlasenko.netsegment.utils.extensions.toByteArray
+import sery.vlasenko.netsegment.utils.extensions.toInt
 import java.nio.ByteBuffer
 
 data class UdpPacketData(
     val dataSize: Int,
     val data: ByteArray
-) : NewPacket() {
+) : Packet() {
 
     override val packetDataSize: Int
         get() = dataSize + 9
@@ -30,6 +30,7 @@ data class UdpPacketData(
     }
 
     companion object Builder : PacketBuilder {
+        val packetHeaderSize: Int = 9
 
         override fun fromByteArray(byteArray: ByteArray): UdpPacketData =
             UdpPacketData(

@@ -1,8 +1,8 @@
 package sery.vlasenko.netsegment.model.test.tcp
 
-import sery.vlasenko.netsegment.model.test.NewPacket
+import sery.vlasenko.netsegment.model.test.Packet
 
-class TcpPacketMeasuresAsk : NewPacket() {
+class TcpPacketMeasuresAsk : Packet() {
 
     override val packetDataSize: Int
         get() = 5

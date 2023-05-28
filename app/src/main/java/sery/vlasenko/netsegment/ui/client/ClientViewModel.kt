@@ -24,7 +24,7 @@ import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
 import sery.vlasenko.netsegment.ui.server.log.LogState
-import sery.vlasenko.netsegment.utils.TimeConst.CONNECTION_TIMEOUT
+import sery.vlasenko.netsegment.utils.Timeouts.CONNECTION_TIMEOUT
 import sery.vlasenko.netsegment.utils.datagramPacketFromArray
 import sery.vlasenko.netsegment.utils.datagramPacketFromSize
 import java.net.DatagramSocket
@@ -242,13 +242,13 @@ class ClientViewModel : BaseRXViewModel() {
                 addMessageToLogs(getString(R.string.measures_start))
             }
             is ClientHandlerCallback.PingGet -> {
-                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet(callback.ping))
+                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet((callback.ping / 1000).toString()))
             }
             ClientHandlerCallback.SocketClose -> {
                 onCloseSocketReceive()
             }
             ClientHandlerCallback.Timeout -> {
-                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet(9999))
+                _singleEvent.postValue(SingleEvent.ConnEvent.PingGet("--"))
                 addMessageToLogs("Timeout")
             }
             is ClientHandlerCallback.Except -> {
@@ -295,7 +295,10 @@ class ClientViewModel : BaseRXViewModel() {
                 conn?.handler?.interrupt()
                 conn?.handler?.join()
 
-                (conn?.socket as? DatagramSocket)?.send(disconnect)
+
+                if ((conn?.socket as? DatagramSocket)?.isConnected == true) {
+                    (conn?.socket as? DatagramSocket)?.send(disconnect)
+                }
 
                 conn?.socket?.close()
 

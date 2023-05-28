@@ -13,12 +13,13 @@ import sery.vlasenko.netsegment.databinding.FragmentServerBinding
 import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItemState
+import sery.vlasenko.netsegment.ui.server.dialog_start_test.DialogStartTest
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
 import sery.vlasenko.netsegment.utils.*
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
-class ServerFragment : Fragment() {
+class ServerFragment : Fragment(), DialogStartTest.DialogStartTestClickListener {
 
     companion object {
         fun newInstance() = ServerFragment()
@@ -60,7 +61,7 @@ class ServerFragment : Fragment() {
                     showToast(it.msg)
                 }
                 is SingleEvent.ConnEvent.PingGet -> {
-                    binding.connTvPing.text = getString(R.string.ping_pattern, it.ping.toString())
+                    binding.connTvPing.text = getString(R.string.ping_pattern, it.ping)
                 }
                 SingleEvent.ConnEvent.TestStart -> {
                     binding.connBtnStartTest.isEnabled = false
@@ -87,42 +88,46 @@ class ServerFragment : Fragment() {
             return
         }
 
-        conn.let {
-            with(binding) {
-                connTvIp.text = conn.ip
-                connTvPort.text = conn.port.toString()
+        with(binding) {
+            connTvIp.text = conn.ip
+            connTvPort.text = conn.port
 
-                when (conn.state) {
-                    ConnectionItemState.IDLE -> {
-                        connBtnStartTest.isEnabled = true
-                        connBtnStopTest.isEnabled = false
-                    }
-                    ConnectionItemState.TESTING -> {
-                        connBtnStartTest.isEnabled = false
-                        connBtnStopTest.isEnabled = true
-                    }
+            connBtnShowResult.isEnabled = conn.isResultAvailable
+
+            when (conn.state) {
+                ConnectionItemState.IDLE -> {
+                    connBtnStartTest.isEnabled = true
+                    connBtnStopTest.isEnabled = false
                 }
-
-                with(connTvProtocol) {
-                    when (conn.protocol) {
-                        Protocol.UDP -> setBackgroundColor(
-                            ContextCompat.getColor(
-                                requireContext(),
-                                R.color.teal_700
-                            )
-                        )
-                        Protocol.TCP -> setBackgroundColor(
-                            ContextCompat.getColor(
-                                requireContext(),
-                                R.color.purple_700
-                            )
-                        )
-                    }
-                    text = conn.protocol.name
+                ConnectionItemState.TESTING -> {
+                    connBtnStartTest.isEnabled = false
+                    connBtnStopTest.isEnabled = true
                 }
-
-                connection.isVisible = true
             }
+
+            setProtocol(conn.protocol)
+
+            connection.isVisible = true
+        }
+    }
+
+    private fun setProtocol(protocol: Protocol) {
+        with(binding.connTvProtocol) {
+            when (protocol) {
+                Protocol.UDP -> setBackgroundColor(
+                    ContextCompat.getColor(
+                        requireContext(),
+                        R.color.teal_700
+                    )
+                )
+                Protocol.TCP -> setBackgroundColor(
+                    ContextCompat.getColor(
+                        requireContext(),
+                        R.color.purple_700
+                    )
+                )
+            }
+            text = protocol.name
         }
     }
 
@@ -164,12 +169,20 @@ class ServerFragment : Fragment() {
         }
 
         binding.connBtnStartTest.setOnClickListener {
-            viewModel.onStartTestClick()
+            showDialogStartTest()
         }
 
         binding.connBtnStopTest.setOnClickListener {
             viewModel.onStopTestClick()
         }
+
+        binding.connBtnShowResult.setOnClickListener {
+            viewModel.onResultClick()
+        }
+    }
+
+    private fun showDialogStartTest() {
+        DialogStartTest().show(childFragmentManager, null)
     }
 
     private fun handleProtocol(): Protocol {
@@ -214,4 +227,7 @@ class ServerFragment : Fragment() {
         }
     }
 
+    override fun onStartTestClick(iterationCount: Int) {
+        viewModel.onStartTestClick(iterationCount)
+    }
 }

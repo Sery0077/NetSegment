@@ -1,32 +1,30 @@
-package sery.vlasenko.netsegment.domain.socket_handlers.server
+package sery.vlasenko.netsegment.domain.socket_handlers.server.tcp
 
 import android.os.Looper
 import okio.IOException
 import sery.vlasenko.netsegment.domain.PacketFactory
 import sery.vlasenko.netsegment.domain.TestResultHandler
-import sery.vlasenko.netsegment.model.test.TcpPacketType
+import sery.vlasenko.netsegment.model.test.tcp.TcpPacketType
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketData
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketMeasuresAsk
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketMeasuresEnd
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketMeasuresStart
 import sery.vlasenko.netsegment.model.testscripts.TestItem
 import sery.vlasenko.netsegment.ui.server.ServerTestCallback
-import sery.vlasenko.netsegment.utils.TimeConst.PING_TIMEOUT
-import sery.vlasenko.netsegment.utils.toInt
-import sery.vlasenko.netsegment.utils.writeAndFlush
+import sery.vlasenko.netsegment.utils.MyThread
+import sery.vlasenko.netsegment.utils.Timeouts.PING_TIMEOUT
+import sery.vlasenko.netsegment.utils.extensions.toInt
+import sery.vlasenko.netsegment.utils.extensions.writeAndFlush
 import java.net.Socket
 import java.net.SocketException
 import java.net.SocketTimeoutException
 
-class TcpMeasuresHandler(
+class ServerTcpMeasuresHandler(
     private val socket: Socket,
     private val testScript: List<TestItem>,
+    private val iterationCount: Int,
     private val callback: (callback: ServerTestCallback) -> Unit,
-) : Thread() {
-
-    init {
-        isDaemon = true
-    }
+) : MyThread() {
 
     private val input = socket.getInputStream()
     private val output = socket.getOutputStream()
@@ -57,46 +55,51 @@ class TcpMeasuresHandler(
     }
 
     private fun doMeasures() {
-        testScript.forEach { testItem ->
-            repeat(testItem.packetCount) {
-                val sendPacket = packetFactory.getPacketData(testItem.dataSize)
+        sendCallback(ServerTestCallback.MeasuresStart)
 
-                try {
-                    output.writeAndFlush(sendPacket.send())
-                    lastTimePingSend = System.currentTimeMillis()
+        repeat(iterationCount) {
 
-                    input.read(size)
+            testScript.forEach { testItem ->
+                val sendPacket = packetFactory.getTcpPacketData(testItem.dataSize)
+                val sendPacketBytes = sendPacket.send()
 
-                    if (size[0].toInt() == -1) {
+                repeat(testItem.packetCount) {
+                    try {
+                        output.writeAndFlush(sendPacketBytes)
+
+                        lastTimePingSend = System.nanoTime()
+
+                        input.read(size)
+
+                        if (size[0].toInt() == -1) {
+                            sendCallback(ServerTestCallback.SocketClose)
+                            return@forEach
+                        }
+
+                        input.read(packetArray, 0, size.toInt())
+
+                        val receivedTime = System.nanoTime()
+
+                        sendCallback(ServerTestCallback.PingGet((lastTimePingSend - receivedTime) / 1000))
+
+                        testResultHandler.handlePackets(
+                            sentPacket = sendPacket,
+                            receivedPacket = TcpPacketData.fromByteArray(packetArray.sliceArray(0 until size.toInt())),
+                            sendTime = lastTimePingSend,
+                            receiveTime = receivedTime
+                        )
+
+                    } catch (e: IOException) {
                         sendCallback(ServerTestCallback.SocketClose)
                         return@forEach
+                    } catch (e: SocketException) {
+                        sendCallback(ServerTestCallback.SocketClose)
+                        return@forEach
+                    } catch (e: SocketTimeoutException) {
+                        testResultHandler.handlerPacketWithoutAnswer(
+                            sentPacket = sendPacket,
+                        )
                     }
-
-                    val s = size.toInt()
-
-                    input.read(packetArray, 0, s)
-
-                    val receivedTime = System.currentTimeMillis()
-
-                    sendCallback(ServerTestCallback.PingGet(lastTimePingSend - receivedTime))
-
-                    testResultHandler.handlePackets(
-                        sentPacket = sendPacket,
-                        receivedPacket = TcpPacketData.fromByteArray(packetArray),
-                        sendTime = lastTimePingSend,
-                        receiveTime = receivedTime
-                    )
-
-                } catch (e: IOException) {
-                    sendCallback(ServerTestCallback.SocketClose)
-                    return@forEach
-                } catch (e: SocketException) {
-                    sendCallback(ServerTestCallback.SocketClose)
-                    return@forEach
-                } catch (e: SocketTimeoutException) {
-                    testResultHandler.handlerPacketWithoutAnswer(
-                        sentPacket = sendPacket,
-                    )
                 }
             }
         }
@@ -111,24 +114,18 @@ class TcpMeasuresHandler(
             try {
                 output.writeAndFlush(measuresAsk)
 
-                size[0] = input.read().toByte()
+                input.read(size)
 
                 if (size[0].toInt() == -1) {
                     sendCallback(ServerTestCallback.SocketClose)
                     interrupt()
-                    break
+                    return false
                 }
 
-                size[1] = input.read().toByte()
-
-                val s = size.toInt()
-
-                input.read(packetArray, 0, s)
+                input.read(packetArray, 0, size.toInt())
 
                 if (packetArray[0] == TcpPacketType.MEASURES_ASK.firstByte) {
-                    output.write(measuresStart)
-                    sendCallback(ServerTestCallback.MeasuresStart)
-                    break
+                    return true
                 }
             } catch (e: SocketException) {
                 return false
@@ -136,7 +133,7 @@ class TcpMeasuresHandler(
                 return false
             }
         }
-        return true
+        return false
     }
 
     private fun sendCallback(callback: ServerTestCallback) =

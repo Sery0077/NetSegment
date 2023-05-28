@@ -13,28 +13,6 @@ abstract class Connection<T : Closeable>(val socket: T, var handler: Thread? = n
     var state = ConnectionState.IDLE
 
     abstract fun close()
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as Connection<*>
-
-        if (ip != other.ip) return false
-        if (port != other.port) return false
-        if (isConnected != other.isConnected) return false
-        if (protocol != other.protocol) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = ip.hashCode()
-        result = 31 * result + port
-        result = 31 * result + isConnected.hashCode()
-        result = 31 * result + protocol.hashCode()
-        return result
-    }
 }
 
 enum class Protocol(name: String) {

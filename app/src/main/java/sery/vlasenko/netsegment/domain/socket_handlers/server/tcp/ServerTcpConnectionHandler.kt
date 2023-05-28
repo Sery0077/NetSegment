@@ -1,41 +1,29 @@
-package sery.vlasenko.netsegment.domain.socket_handlers.server
+package sery.vlasenko.netsegment.domain.socket_handlers.server.tcp
 
+import sery.vlasenko.netsegment.utils.MyThread
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
 import java.net.SocketTimeoutException
 
-class TcpConnectionHandler(
+class ServerTcpConnectionHandler(
     private val socket: ServerSocket,
     private val onConnectionAdd: (socket: Socket) -> Unit,
-    private val onClose: () -> Unit = {}
-) : Thread() {
-    init {
-        isDaemon = true
-    }
+) : MyThread() {
 
     override fun run() {
-        socket.soTimeout = 50
-
         while (!isInterrupted) {
             try {
                 val socket = socket.accept()
 
                 if (socket != null) {
+                    interrupt()
                     onConnectionAdd.invoke(socket)
                 }
             } catch (e: SocketException) {
-                onClose.invoke()
-                break
-            } catch (e: SocketTimeoutException) {
-
+                interrupt()
             }
         }
-    }
-
-    override fun interrupt() {
-        onClose.invoke()
-        super.interrupt()
     }
 
 }

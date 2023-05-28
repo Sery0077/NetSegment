@@ -80,7 +80,7 @@ class ClientFragment : Fragment() {
                     showToast(it.msg)
                 }
                 is SingleEvent.ConnEvent.PingGet -> {
-                    binding.tvPing.text = getString(R.string.ping_pattern, it.ping.toString())
+                    binding.tvPing.text = getString(R.string.ping_pattern, it.ping)
                 }
                 is SingleEvent.ConnEvent.TestStart -> {
 

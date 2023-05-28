@@ -1,8 +1,9 @@
-package sery.vlasenko.netsegment.domain.socket_handlers.server
+package sery.vlasenko.netsegment.domain.socket_handlers.server.udp
 
 import android.os.Handler
 import android.os.Looper
 import sery.vlasenko.netsegment.model.test.udp.UdpPacketConnect
+import sery.vlasenko.netsegment.utils.MyThread
 import sery.vlasenko.netsegment.utils.datagramPacketFromArray
 import sery.vlasenko.netsegment.utils.datagramPacketFromSize
 import java.net.DatagramPacket
@@ -10,20 +11,15 @@ import java.net.DatagramSocket
 import java.net.SocketException
 import java.net.SocketTimeoutException
 
-class UdpConnectionHandler(
+class ServerUdpConnectionHandler(
     private val socket: DatagramSocket,
-    private val onConnectAdd: (packet: DatagramPacket) -> Unit,
-    private val onConnectFail: () -> Unit = {}
-) : Thread() {
-
-    init {
-        isDaemon = true
-    }
+    private val onConnectAdd: (packet: DatagramPacket) -> Unit
+) : MyThread() {
 
     private val packetConnectAnswer =
         datagramPacketFromArray(UdpPacketConnect(isAnswer = true).send())
 
-    private val buf = datagramPacketFromSize(1500)
+    private val buf = datagramPacketFromSize(UdpPacketConnect.packetSize)
 
     override fun run() {
         socket.soTimeout = 5
@@ -34,24 +30,16 @@ class UdpConnectionHandler(
 
                 when (buf.data[0].toInt()) {
                     5 -> {
+                        interrupt()
                         socket.send(packetConnectAnswer.apply { socketAddress = buf.socketAddress })
                         Handler(Looper.getMainLooper()).post { onConnectAdd(buf) }
                     }
                 }
             } catch (e: SocketException) {
-                onConnectFail.invoke()
-                break
+                interrupt()
             } catch (e: SocketTimeoutException) {
                 trySleep(50L)
             }
-        }
-    }
-
-    private fun trySleep(s: Long) {
-        try {
-            sleep(s)
-        } catch (e: InterruptedException) {
-            interrupt()
         }
     }
 

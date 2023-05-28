@@ -1,39 +1,59 @@
 package sery.vlasenko.netsegment.domain
 
-import sery.vlasenko.netsegment.model.test.NewPacket
+import sery.vlasenko.netsegment.model.test.Packet
 import sery.vlasenko.netsegment.model.test.TestResult
+import sery.vlasenko.netsegment.utils.plusValueOrPut
+import kotlin.math.max
+import kotlin.math.min
 
 class TestResultHandler {
 
-    private val sentPackets = hashMapOf<Int, NewPacket>()
-    private val receivedPackets = hashMapOf<Int, NewPacket>()
+    private val sentPacketsCountBySize = hashMapOf<Int, Int>()
+    private val receivedPacketsBySize = hashMapOf<Int, Int>()
 
-    private val delaysByPacketSize = hashMapOf<Int, Long>()
+    private val delaysBySize = hashMapOf<Int, MutableList<Int>>()
+
+    private var maxPing = 0
+    private var minPing = 0
+
+    private var sentPacketCount = 0
+    private var receivedPacketCount = 0
 
     fun handlePackets(
-        sentPacket: NewPacket,
-        receivedPacket: NewPacket,
+        sentPacket: Packet,
+        receivedPacket: Packet,
         sendTime: Long,
         receiveTime: Long,
     ) {
-        sentPackets.plus(sentPacket.packetSize to sentPacket)
-        delaysByPacketSize.plus((receiveTime - sendTime).toInt() to sentPacket)
+        sentPacketsCountBySize.plusValueOrPut(sentPacket.packetSize)
+        receivedPacketsBySize.plusValueOrPut(receivedPacket.packetSize)
 
-        receivedPackets.plus(receivedPacket.packetSize to receivedPacket)
+        sentPacketCount++
+        receivedPacketCount++
+
+        val ping = ((receiveTime - sendTime) / 1000).toInt()
+
+        maxPing = max(ping, maxPing)
+        minPing = min(ping, minPing)
+
+        delaysBySize.getOrPut(sentPacket.packetSize) { mutableListOf() }.add(ping)
     }
 
     fun handlerPacketWithoutAnswer(
-        sentPacket: NewPacket
+        sentPacket: Packet
     ) {
-        sentPackets.plus(sentPacket.packetSize to sentPacket)
+        sentPacketCount++
+        sentPacketsCountBySize.plusValueOrPut(sentPacket.packetSize)
     }
 
     fun getResult(): TestResult = TestResult(
-        averagePing = delaysByPacketSize.maxOf { it.key } / delaysByPacketSize.size,
-        jitter = delaysByPacketSize.maxOf { it.key } - delaysByPacketSize.minOf { it.key },
-        sentPacketCount = sentPackets.size,
-        receivedPacket = receivedPackets.size,
-        lossPacket = sentPackets.size - receivedPackets.size
+        averagePing = delaysBySize.values.sumOf { it.sum() } / delaysBySize.values.sumOf { it.size }.toFloat(),
+        jitter = maxPing - minPing,
+        lossPacketCount = sentPacketCount - receivedPacketCount,
+        sentPacketsBySize = sentPacketsCountBySize,
+        receivedPacketsBySize = receivedPacketsBySize,
+        delaysBySize = delaysBySize,
+        averageDelaysBySize = delaysBySize.mapValuesTo(hashMapOf()) { it.value.average().toFloat() }
     )
 
 }

@@ -1,8 +1,8 @@
 package sery.vlasenko.netsegment.model.test.udp
 
-import sery.vlasenko.netsegment.model.test.NewPacket
+import sery.vlasenko.netsegment.model.test.Packet
 
-class UdpPacketMeasuresAsk : NewPacket() {
+class UdpPacketMeasuresAsk : Packet() {
 
     override val packetDataSize: Int
         get() = 4
