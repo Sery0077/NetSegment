@@ -3,6 +3,7 @@ package sery.vlasenko.netsegment.domain.socket_handlers.server.udp
 import android.os.Handler
 import android.os.Looper
 import sery.vlasenko.netsegment.model.test.udp.UdpPacketConnect
+import sery.vlasenko.netsegment.model.test.udp.UdpPacketType
 import sery.vlasenko.netsegment.utils.MyThread
 import sery.vlasenko.netsegment.utils.datagramPacketFromArray
 import sery.vlasenko.netsegment.utils.datagramPacketFromSize
@@ -28,8 +29,8 @@ class ServerUdpConnectionHandler(
             try {
                 socket.receive(buf)
 
-                when (buf.data[0].toInt()) {
-                    5 -> {
+                when (buf.data[0]) {
+                    UdpPacketType.CONNECT.typeByte -> {
                         interrupt()
                         socket.send(packetConnectAnswer.apply { socketAddress = buf.socketAddress })
                         Handler(Looper.getMainLooper()).post { onConnectAdd(buf) }

@@ -4,7 +4,6 @@ import sery.vlasenko.netsegment.utils.MyThread
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
-import java.net.SocketTimeoutException
 
 class ServerTcpConnectionHandler(
     private val socket: ServerSocket,

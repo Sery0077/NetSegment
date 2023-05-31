@@ -55,7 +55,7 @@ class ServerViewModel : BaseRXViewModel() {
     private var udpSocket: DatagramSocket? = null
     private var udpConnectionHandler: ServerUdpConnectionHandler? = null
 
-    private var port = 4444
+    private var port = -1
 
     private var conn: Connection<*>? = null
 
@@ -65,7 +65,7 @@ class ServerViewModel : BaseRXViewModel() {
     private var testResult: TestResult? = null
 
     init {
-//        getIp()
+        getIp()
     }
 
     fun getIp() {
@@ -158,11 +158,12 @@ class ServerViewModel : BaseRXViewModel() {
                     if (testResult == null) callback.result else testResult?.append(callback.result)
 
                 _connItem.postValue(_connItem.value?.copyStopTestWithResult())
-                addLog("Test end")
+                addLog(getString(R.string.measures_end))
                 startPing()
             }
             ServerTestCallback.MeasuresStart -> {
-                addLog("Test start")
+                _connItem.postValue(_connItem.value?.copyStartTest())
+                addLog(getString(R.string.measures_start))
             }
             ServerTestCallback.MeasuresStartFailed -> {
                 _connItem.postValue(_connItem.value?.copyStopTest())
@@ -379,12 +380,18 @@ class ServerViewModel : BaseRXViewModel() {
             return
         }
 
-        tcpSocket = ServerSocket(port.toInt()).also { tcpSocket ->
-            startListenTcpConnection(tcpSocket)
-        }
+        try {
+            tcpSocket = ServerSocket(port.toInt()).also { tcpSocket ->
+                startListenTcpConnection(tcpSocket)
+            }
 
-        this.port = port.toInt()
-        socketOpened(port)
+            this.port = port.toInt()
+            socketOpened(port)
+        } catch (e: Exception) {
+            _singleEvent.value = SingleEvent.ShowToastEvent(
+                "${getString(R.string.open_socket_failed, port.toInt())} ${e.message}"
+            )
+        }
     }
 
     private fun closeTcpSocket() {

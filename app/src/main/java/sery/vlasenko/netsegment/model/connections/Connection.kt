@@ -18,6 +18,7 @@ abstract class Connection<T : Closeable>(val socket: T, var handler: Thread) {
         this.handler.interrupt()
         this.handler.join()
     }
+
     fun setAndStartNewHandler(handler: Thread) {
         this.handler.interrupt()
         this.handler.join()

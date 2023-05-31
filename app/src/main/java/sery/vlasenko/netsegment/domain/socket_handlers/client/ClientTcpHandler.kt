@@ -1,7 +1,7 @@
 package sery.vlasenko.netsegment.domain.socket_handlers.client
 
 import android.os.Looper
-import sery.vlasenko.netsegment.domain.socket_handlers.server.tcp.ServerTcpPingThread
+import sery.vlasenko.netsegment.domain.socket_handlers.TcpPingThread
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketMeasuresAsk
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketPing
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketType
@@ -31,7 +31,7 @@ class ClientTcpHandler(
     private val pingAnswer = TcpPacketPing(isAnswer = true).send()
     private val measuresAsk = TcpPacketMeasuresAsk().send()
 
-    private val pingThread = ServerTcpPingThread(output) {
+    private val pingThread = TcpPingThread(output) {
         sendCallback(ClientHandlerCallback.SocketClose)
         interrupt()
     }

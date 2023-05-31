@@ -1,41 +1,53 @@
 <resources>
     <string name="app_name">NetSegment</string>
-    <string name="server_label">Сервер</string>
-    <string name="client_label">Клиент</string>
+    <string name="server_label">Server</string>
+    <string name="client_label">Client</string>
     <string name="ip_address">IP:</string>
     <string name="ip_address_server">Server IP:</string>
-    <string name="start_test">Start test</string>
 
-    <string name="snackbar_error">Ошибка загрузки</string>
-    <string name="snackbar_action">Повторить</string>
+    <string name="start_measure">Start measure</string>
+    <string name="stop_measure">Stop measure</string>
+
+    <string name="snackbar_error">Error loading</string>
+    <string name="snackbar_action">Retry</string>
 
     <string name="open_socket">Open socket</string>
     <string name="close_socket">Close socket</string>
-    <string name="port_hint">Порт сокета</string>
-    <string name="ip_getting">Получение IP</string>
-    <string name="ip_getted">IP получен:</string>
-    <string name="ip_getting_error">Ошибка получения IP</string>
-    <string name="local_ip_address">Локальный IP:</string>
+    <string name="open_socket_failed">Failed open socket on port %d</string>
 
-    <string name="incorrect_port">Некорректный порт</string>
-    <string name="socket_already_opened">Сокет на этом порту уже открыт</string>
-    <string name="socket_closed">Сокет на порту %s закрыт</string>
-    <string name="socket_opened">Сокет на порту %s открыт</string>
-    <string name="connect">Соединиться</string>
-    <string name="connected">Подключено к %s:%s</string>
-    <string name="port">Порт:</string>
-    <string name="disconnect">Отключиться</string>
+    <string name="ip_getting">Getting IP</string>
+    <string name="ip_got">IP got:</string>
+    <string name="ip_getting_error">Error IP getting</string>
 
-    <string name="ping_pattern">%s мс</string>
-    <string name="connect_error">Не удалось подключиться к %s:%s</string>
-    <string name="connect_try">Подключение к %s:%s</string>
-    <string name="stop_test">Stop test</string>
+    <string name="local_ip_address">Local IP:</string>
+    <string name="port">Port:</string>
+    <string name="port_hint">Socket port</string>
+
+    <string name="incorrect_port">Incorrect port</string>
+
+    <string name="socket_already_opened">Socket already opened</string>
+    <string name="socket_closed">Socket on the port %s closed</string>
+    <string name="socket_opened">Socket on the port %s opened</string>
+
+    <string name="connect">Connect</string>
+    <string name="connected">Connected to %s:%s</string>
+    <string name="disconnect">Disconnect</string>
+
+    <string name="ping_pattern">%s mcs</string>
+
+    <string name="connect_error">Error connect to %s:%s</string>
+    <string name="connect_try">Connecting to %s:%s</string>
+
     <string name="show_result">Result</string>
-    <string name="open_udp_socket">Открыть UDP</string>
-    <string name="close_udp_socket">Закрыть UDP</string>
-    <string name="measures_start">Meastures start</string>
+
+    <string name="measures_start">Measures start</string>
     <string name="measures_end">Measures end</string>
-    <string name="exception">Expcetion: %s</string>
+    <string name="exception">Exception: %s</string>
     <string name="client_disconnect">Client disconnect</string>
+
     <string name="count_iterations">Iteration count</string>
+
+    <string name="conn_state_idle">IDLE</string>
+    <string name="conn_state_measure">MEASURE</string>
+
 </resources>

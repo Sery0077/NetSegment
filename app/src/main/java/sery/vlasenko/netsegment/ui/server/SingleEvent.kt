@@ -5,13 +5,17 @@ sealed class SingleEvent {
 
     sealed class ConnEvent : SingleEvent() {
 
-        object TestStart : ConnEvent()
-
-        object TestEnd : ConnEvent()
-
         class PingGet(val ping: String) : ConnEvent()
 
         class AddLog(val pos: Int) : ConnEvent()
+
+    }
+
+    sealed class ConnState : SingleEvent() {
+
+        object ConnIdle : ConnState()
+
+        object ConnMeasure : ConnState()
 
     }
 }

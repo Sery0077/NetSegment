@@ -1,6 +1,6 @@
 package sery.vlasenko.netsegment.utils
 
-open class MyThread: Thread() {
+open class MyThread : Thread() {
 
     init {
         isDaemon = true

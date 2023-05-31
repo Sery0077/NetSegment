@@ -4,11 +4,7 @@ import android.os.Looper
 import okio.IOException
 import sery.vlasenko.netsegment.domain.PacketFactory
 import sery.vlasenko.netsegment.domain.TestResultHandler
-import sery.vlasenko.netsegment.model.test.tcp.TcpPacketType
-import sery.vlasenko.netsegment.model.test.tcp.TcpPacketData
-import sery.vlasenko.netsegment.model.test.tcp.TcpPacketMeasuresAsk
-import sery.vlasenko.netsegment.model.test.tcp.TcpPacketMeasuresEnd
-import sery.vlasenko.netsegment.model.test.tcp.TcpPacketMeasuresStart
+import sery.vlasenko.netsegment.model.test.tcp.*
 import sery.vlasenko.netsegment.model.testscripts.TestItem
 import sery.vlasenko.netsegment.ui.server.ServerTestCallback
 import sery.vlasenko.netsegment.utils.MyThread
@@ -51,6 +47,7 @@ class ServerTcpMeasuresHandler(
             doMeasures()
         } else {
             sendCallback(ServerTestCallback.MeasuresStartFailed)
+            interrupt()
         }
     }
 
@@ -91,9 +88,11 @@ class ServerTcpMeasuresHandler(
 
                     } catch (e: IOException) {
                         sendCallback(ServerTestCallback.SocketClose)
+                        interrupt()
                         return@forEach
                     } catch (e: SocketException) {
                         sendCallback(ServerTestCallback.SocketClose)
+                        interrupt()
                         return@forEach
                     } catch (e: SocketTimeoutException) {
                         testResultHandler.handlerPacketWithoutAnswer(

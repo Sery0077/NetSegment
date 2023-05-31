@@ -113,8 +113,6 @@ class ServerUdpMeasuresHandler(
     }
 
     private fun tryStartMeasures(): Boolean {
-//        clearSocketData()
-
         for (i in 1..startMeasuresTryCount) {
             try {
                 socket.send(measuresAsk)
@@ -138,18 +136,6 @@ class ServerUdpMeasuresHandler(
             }
         }
         return false
-    }
-
-    private fun clearSocketData() {
-        while (true) {
-            socket.soTimeout = 50
-
-            try {
-                socket.receive(buf)
-            } catch (e: SocketTimeoutException) {
-                break
-            }
-        }
     }
 
     private fun sendCallback(callback: ServerTestCallback) =

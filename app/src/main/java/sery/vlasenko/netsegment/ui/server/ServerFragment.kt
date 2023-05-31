@@ -10,12 +10,13 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.databinding.FragmentServerBinding
+import sery.vlasenko.netsegment.model.connections.ConnectionState
 import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
-import sery.vlasenko.netsegment.ui.server.connections.ConnectionItemState
 import sery.vlasenko.netsegment.ui.server.dialog_start_test.DialogStartTest
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
 import sery.vlasenko.netsegment.utils.*
+import sery.vlasenko.netsegment.utils.extensions.setConnState
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
@@ -63,17 +64,11 @@ class ServerFragment : Fragment(), DialogStartTest.DialogStartTestClickListener 
                 is SingleEvent.ConnEvent.PingGet -> {
                     binding.connTvPing.text = getString(R.string.ping_pattern, it.ping)
                 }
-                SingleEvent.ConnEvent.TestStart -> {
-                    binding.connBtnStartTest.isEnabled = false
-                    binding.connBtnStopTest.isEnabled = true
-                }
-                SingleEvent.ConnEvent.TestEnd -> {
-                    binding.connBtnStartTest.isEnabled = true
-                    binding.connBtnStopTest.isEnabled = false
-                }
                 is SingleEvent.ConnEvent.AddLog -> {
                     logAdapter.notifyItemInserted(it.pos)
                 }
+                SingleEvent.ConnState.ConnIdle -> {}
+                SingleEvent.ConnState.ConnMeasure -> {}
             }
         }
 
@@ -95,13 +90,17 @@ class ServerFragment : Fragment(), DialogStartTest.DialogStartTestClickListener 
             connBtnShowResult.isEnabled = conn.isResultAvailable
 
             when (conn.state) {
-                ConnectionItemState.IDLE -> {
+                ConnectionState.IDLE -> {
                     connBtnStartTest.isEnabled = true
                     connBtnStopTest.isEnabled = false
+
+                    binding.connState.setConnState(ConnectionState.IDLE)
                 }
-                ConnectionItemState.TESTING -> {
+                ConnectionState.MEASURE -> {
                     connBtnStartTest.isEnabled = false
                     connBtnStopTest.isEnabled = true
+
+                    binding.connState.setConnState(ConnectionState.MEASURE)
                 }
             }
 
@@ -157,26 +156,26 @@ class ServerFragment : Fragment(), DialogStartTest.DialogStartTestClickListener 
     }
 
     private fun setClickers() {
-        binding.btnOpen.setOnClickListener {
+        binding.btnOpen.throttleClick {
             val port = binding.etPort.text.toString()
             val protocol = handleProtocol()
 
             viewModel.onOpenSocketClicked(port, protocol)
         }
 
-        binding.btnClose.setOnClickListener {
+        binding.btnClose.throttleClick {
             viewModel.onCloseSocketClicked()
         }
 
-        binding.connBtnStartTest.setOnClickListener {
+        binding.connBtnStartTest.throttleClick {
             showDialogStartTest()
         }
 
-        binding.connBtnStopTest.setOnClickListener {
+        binding.connBtnStopTest.throttleClick {
             viewModel.onStopTestClick()
         }
 
-        binding.connBtnShowResult.setOnClickListener {
+        binding.connBtnShowResult.throttleClick {
             viewModel.onResultClick()
         }
     }
@@ -196,6 +195,20 @@ class ServerFragment : Fragment(), DialogStartTest.DialogStartTestClickListener 
 
     private fun initView() {
         binding.tvLocalIp.text = getLocalIp()
+
+        binding.rgProtocol.setOnCheckedChangeListener { _, checkedId ->
+            binding.etPort.setText(
+                when (checkedId) {
+                    binding.rbTcp.id -> {
+                        PortHelper.TCP_PORT.toString()
+                    }
+                    binding.rbUdp.id -> {
+                        PortHelper.UDP_PORT.toString()
+                    }
+                    else -> throw IllegalStateException("No port for $checkedId")
+                }
+            )
+        }
 
         logAdapter.submitList(viewModel.logs)
         binding.connRvLogs.adapter = logAdapter

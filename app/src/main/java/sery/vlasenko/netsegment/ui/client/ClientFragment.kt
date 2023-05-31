@@ -14,15 +14,14 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.databinding.FragmentClientBinding
+import sery.vlasenko.netsegment.model.connections.ConnectionState
 import sery.vlasenko.netsegment.model.connections.Protocol
 import sery.vlasenko.netsegment.ui.server.ServerUiState
 import sery.vlasenko.netsegment.ui.server.SingleEvent
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
 import sery.vlasenko.netsegment.ui.server.log.LogState
-import sery.vlasenko.netsegment.utils.buildSnackAndShow
-import sery.vlasenko.netsegment.utils.disable
-import sery.vlasenko.netsegment.utils.enable
-import sery.vlasenko.netsegment.utils.showToast
+import sery.vlasenko.netsegment.utils.*
+import sery.vlasenko.netsegment.utils.extensions.setConnState
 
 class ClientFragment : Fragment() {
 
@@ -82,14 +81,12 @@ class ClientFragment : Fragment() {
                 is SingleEvent.ConnEvent.PingGet -> {
                     binding.tvPing.text = getString(R.string.ping_pattern, it.ping)
                 }
-                is SingleEvent.ConnEvent.TestStart -> {
-
+                is SingleEvent.ConnEvent.AddLog -> {}
+                SingleEvent.ConnState.ConnIdle -> {
+                    binding.connState.setConnState(ConnectionState.IDLE)
                 }
-                is SingleEvent.ConnEvent.AddLog -> {
-
-                }
-                SingleEvent.ConnEvent.TestEnd -> {
-
+                SingleEvent.ConnState.ConnMeasure -> {
+                    binding.connState.setConnState(ConnectionState.MEASURE)
                 }
             }
         }
@@ -106,6 +103,9 @@ class ClientFragment : Fragment() {
 
                     btnConnect.isEnabled = false
                     btnDisconnect.isEnabled = true
+
+                    binding.connState.setConnState(ConnectionState.IDLE)
+                    binding.connState.visibility = View.VISIBLE
                 }
             }
             ClientUiState.Disconnected -> {
@@ -117,6 +117,8 @@ class ClientFragment : Fragment() {
 
                     btnConnect.isEnabled = true
                     btnDisconnect.isEnabled = false
+
+                    binding.connState.visibility = View.GONE
                 }
             }
             ClientUiState.Connecting -> {
@@ -159,11 +161,25 @@ class ClientFragment : Fragment() {
         binding.rvLog.adapter = logAdapter
         binding.rvLog.setHasFixedSize(true)
 
+        binding.rgProtocol.setOnCheckedChangeListener { _, checkedId ->
+            binding.etPort.setText(
+                when (checkedId) {
+                    binding.rbTcp.id -> {
+                        PortHelper.TCP_PORT.toString()
+                    }
+                    binding.rbUdp.id -> {
+                        PortHelper.UDP_PORT.toString()
+                    }
+                    else -> throw IllegalStateException("No port for $checkedId")
+                }
+            )
+        }
+
         logAdapter.submitList(viewModel.logs)
     }
 
     private fun setClickers() {
-        binding.btnConnect.setOnClickListener {
+        binding.btnConnect.throttleClick {
             val ip = binding.etServerIp.text.toString()
             val port = binding.etPort.text.toString()
             val protocol = handleProtocol()
@@ -171,7 +187,7 @@ class ClientFragment : Fragment() {
             viewModel.onConnectClicked(ip, port, protocol)
         }
 
-        binding.btnDisconnect.setOnClickListener {
+        binding.btnDisconnect.throttleClick {
             viewModel.onDisconnectClicked()
         }
     }

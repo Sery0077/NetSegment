@@ -8,33 +8,23 @@ object Scripts {
         TestItem(
             packetCount = 20,
             dataSize = 70,
-            timeout = Timeouts.DEFAULT_TIMEOUT,
-            delay = 500L
         ),
         TestItem(
             packetCount = 20,
             dataSize = 130,
-            timeout = Timeouts.DEFAULT_TIMEOUT,
-            delay = 500L
         ),
 
         TestItem(
             packetCount = 20,
             dataSize = 180,
-            timeout = Timeouts.DEFAULT_TIMEOUT,
-            delay = 500L
         ),
         TestItem(
             packetCount = 20,
             dataSize = 250,
-            timeout = Timeouts.DEFAULT_TIMEOUT,
-            delay = 500L
         ),
         TestItem(
             packetCount = 20,
             dataSize = 300,
-            timeout = Timeouts.DEFAULT_TIMEOUT,
-            delay = 500L
         ),
     )
 

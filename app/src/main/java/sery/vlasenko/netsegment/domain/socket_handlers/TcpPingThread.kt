@@ -1,4 +1,4 @@
-package sery.vlasenko.netsegment.domain.socket_handlers.server.tcp
+package sery.vlasenko.netsegment.domain.socket_handlers
 
 import sery.vlasenko.netsegment.model.test.tcp.TcpPacketPing
 import sery.vlasenko.netsegment.utils.MyThread
@@ -8,7 +8,7 @@ import java.net.SocketException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
-class ServerTcpPingThread(
+class TcpPingThread(
     private val output: OutputStream,
     private val onSocketException: () -> Unit,
 ) : MyThread() {
@@ -33,6 +33,8 @@ class ServerTcpPingThread(
                     onSocketException.invoke()
                 }
             }
+
+            trySleep(50)
         }
     }
 

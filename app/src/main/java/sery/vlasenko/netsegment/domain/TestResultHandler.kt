@@ -47,7 +47,8 @@ class TestResultHandler {
     }
 
     fun getResult(): TestResult = TestResult(
-        averagePing = delaysBySize.values.sumOf { it.sum() } / delaysBySize.values.sumOf { it.size }.toFloat(),
+        averagePing = delaysBySize.values.sumOf { it.sum() } / delaysBySize.values.sumOf { it.size }
+            .toFloat(),
         jitter = maxPing - minPing,
         lossPacketCount = sentPacketCount - receivedPacketCount,
         sentPacketsBySize = sentPacketsCountBySize,

@@ -61,7 +61,7 @@ class ClientViewModel : BaseRXViewModel() {
     private val connectionRetry = 3
 
     init {
-//        getIp()
+        getIp()
     }
 
     fun getIp() {
@@ -76,7 +76,7 @@ class ClientViewModel : BaseRXViewModel() {
                     onSuccess = {
                         val ip = it.string().trim()
                         _ipState.value = ServerUiState.Loaded(ip)
-                        addMessageToLogs("${getString(R.string.ip_getted)} $ip")
+                        addMessageToLogs("${getString(R.string.ip_got)} $ip")
                     },
                     onError = {
                         _ipState.value = ServerUiState.Error(it.message)
@@ -88,9 +88,9 @@ class ClientViewModel : BaseRXViewModel() {
 
     fun onConnectClicked(ip: String, port: String, protocol: Protocol) {
         if (protocol == Protocol.TCP) {
-            openTcpSocket(ip, port)
+            connectTcpSocket(ip, port)
         } else {
-            openUdpSocket(ip, port)
+            connectUdpSocket(ip, port)
         }
     }
 
@@ -98,7 +98,7 @@ class ClientViewModel : BaseRXViewModel() {
         closeSocket()
     }
 
-    private fun openTcpSocket(ip: String, port: String) {
+    private fun connectTcpSocket(ip: String, port: String) {
         addMessageToLogs(getString(R.string.connect_try, ip, port))
         _uiState.value = ClientUiState.Connecting
 
@@ -138,7 +138,7 @@ class ClientViewModel : BaseRXViewModel() {
         }
     }
 
-    private fun openUdpSocket(ip: String, port: String) {
+    private fun connectUdpSocket(ip: String, port: String) {
         addMessageToLogs(getString(R.string.connect_try, ip, port))
         _uiState.value = ClientUiState.Connecting
 
@@ -233,12 +233,14 @@ class ClientViewModel : BaseRXViewModel() {
         )
     }
 
-    private fun handleCallback(callback: ClientHandlerCallback): Unit {
+    private fun handleCallback(callback: ClientHandlerCallback) {
         when (callback) {
             ClientHandlerCallback.MeasuresEnd -> {
+                _singleEvent.postValue(SingleEvent.ConnState.ConnIdle)
                 addMessageToLogs(getString(R.string.measures_end))
             }
             ClientHandlerCallback.MeasuresStart -> {
+                _singleEvent.postValue(SingleEvent.ConnState.ConnMeasure)
                 addMessageToLogs(getString(R.string.measures_start))
             }
             is ClientHandlerCallback.PingGet -> {

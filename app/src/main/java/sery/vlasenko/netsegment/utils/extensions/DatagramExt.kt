@@ -8,7 +8,11 @@ fun datagramPacketFromArray(array: ByteArray, addr: InetSocketAddress? = null): 
 
 
 fun datagramPacketFromSize(size: Int, addr: InetSocketAddress? = null): DatagramPacket =
-    if (addr != null) DatagramPacket(ByteArray(size), size, addr) else DatagramPacket(ByteArray(size), size)
+    if (addr != null) DatagramPacket(
+        ByteArray(size),
+        size,
+        addr
+    ) else DatagramPacket(ByteArray(size), size)
 
 
 fun DatagramPacket.append(dp: DatagramPacket) =
