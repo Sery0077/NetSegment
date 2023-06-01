@@ -65,10 +65,10 @@ class ServerTcpPingHandler(
                 input.read(packetArray, 0, size.toInt())
 
                 when (packetArray[0]) {
-                    TcpPacketType.PING.firstByte -> {
+                    TcpPacketType.PING.typeByte -> {
                         output.synchronizedWrite(pingAnswer)
                     }
-                    TcpPacketType.PING_ANSWER.firstByte -> {
+                    TcpPacketType.PING_ANSWER.typeByte -> {
                         handlePing()
                     }
                 }

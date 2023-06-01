@@ -324,6 +324,8 @@ class ServerViewModel : BaseRXViewModel() {
 
     private fun onAddConnection(socket: Socket) {
         ioViewModelScope.launch {
+            tcpConnectionHandler?.interrupt()
+            tcpConnectionHandler?.join()
             tcpConnectionHandler = null
 
             conn = TcpConnection(

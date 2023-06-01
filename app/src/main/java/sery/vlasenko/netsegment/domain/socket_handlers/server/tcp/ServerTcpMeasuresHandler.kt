@@ -123,7 +123,7 @@ class ServerTcpMeasuresHandler(
 
                 input.read(packetArray, 0, size.toInt())
 
-                if (packetArray[0] == TcpPacketType.MEASURES_ASK.firstByte) {
+                if (packetArray[0] == TcpPacketType.MEASURES_ASK.typeByte) {
                     return true
                 }
             } catch (e: SocketException) {

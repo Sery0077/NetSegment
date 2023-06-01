@@ -12,10 +12,10 @@ data class UdpPacketData(
 ) : Packet() {
 
     override val packetDataSize: Int
-        get() = dataSize + 9
+        get() = dataSize
 
     override val packetSize: Int
-        get() = dataSize
+        get() = dataSize + 9
 
     override fun send(): ByteArray {
         val buffer = ByteBuffer.allocate(9 + dataSize)
@@ -58,10 +58,3 @@ data class UdpPacketData(
     }
 
 }
-//
-//fun main() {
-//    val pack = UdpPacketData(20, Random.Default.nextBytes(20))
-//
-//    
-//    
-//}

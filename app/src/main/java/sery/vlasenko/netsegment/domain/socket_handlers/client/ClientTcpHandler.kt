@@ -69,13 +69,13 @@ class ClientTcpHandler(
                 input.read(packetArray, 0, size.toInt())
 
                 when (packetArray[0]) {
-                    TcpPacketType.PING.firstByte -> {
+                    TcpPacketType.PING.typeByte -> {
                         output.synchronizedWrite(pingAnswer)
                     }
-                    TcpPacketType.PING_ANSWER.firstByte -> {
+                    TcpPacketType.PING_ANSWER.typeByte -> {
                         handlePing()
                     }
-                    TcpPacketType.MEASURES.firstByte -> {
+                    TcpPacketType.MEASURES.typeByte -> {
                         handleMeasuresPacket(packetArray)
                     }
                     else -> {
@@ -98,16 +98,16 @@ class ClientTcpHandler(
 
     private fun handleMeasuresPacket(packetArray: ByteArray) {
         when (packetArray[1]) {
-            TcpPacketType.MEASURES_ASK.secondByte -> {
+            TcpPacketType.MEASURES_ASK.subTypeByte -> {
                 pingThread.stopPing()
                 output.synchronizedWrite(measuresAsk)
                 sendCallback(ClientHandlerCallback.MeasuresStart)
             }
-            TcpPacketType.MEASURES_END.secondByte -> {
+            TcpPacketType.MEASURES_END.subTypeByte -> {
                 pingThread.startPing()
                 sendCallback(ClientHandlerCallback.MeasuresEnd)
             }
-            TcpPacketType.MEASURES_START.secondByte -> {
+            TcpPacketType.MEASURES_START.subTypeByte -> {
                 sendCallback(ClientHandlerCallback.MeasuresStart)
             }
         }

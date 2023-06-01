@@ -1,6 +1,6 @@
 package sery.vlasenko.netsegment.model.test.tcp
 
-enum class TcpPacketType(val firstByte: Byte, val secondByte: Byte) {
+enum class TcpPacketType(val typeByte: Byte, val subTypeByte: Byte) {
     PING(1, -1),
     PING_ANSWER(2, -1),
 

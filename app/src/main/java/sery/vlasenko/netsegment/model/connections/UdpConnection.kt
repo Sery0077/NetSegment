@@ -13,14 +13,8 @@ class UdpConnection(socket: DatagramSocket, handler: Thread) :
     override val port: Int
         get() = socket.port
 
-    override val isConnected: Boolean
-        get() = socket.isConnected
-
     override val protocol: Protocol
         get() = Protocol.UDP
-
-    override val isClosed: Boolean
-        get() = socket.isClosed
 
     override fun close() {
         if (socket.isConnected) {

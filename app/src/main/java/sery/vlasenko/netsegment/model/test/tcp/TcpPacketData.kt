@@ -19,13 +19,14 @@ data class TcpPacketData(
         val buffer = ByteBuffer.allocate(packetSize)
 
         buffer.put(dataSize.toByteArray())
-        buffer.put(TcpPacketType.DATA.firstByte)
+        buffer.put(TcpPacketType.DATA.typeByte)
         buffer.put(data)
 
         return buffer.array()
     }
 
     companion object Builder : PacketBuilder {
+
         override fun fromByteArray(byteArray: ByteArray): TcpPacketData =
             TcpPacketData(
                 dataSize = byteArray.size,

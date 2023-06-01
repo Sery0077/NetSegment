@@ -7,7 +7,8 @@ abstract class Packet {
     abstract val packetDataSize: Int
     abstract val packetSize: Int
 
-    interface PacketBuilder {
+
+    protected interface PacketBuilder {
         fun fromByteArray(byteArray: ByteArray): Packet
     }
 

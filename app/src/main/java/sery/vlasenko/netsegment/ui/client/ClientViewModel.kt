@@ -276,11 +276,7 @@ class ClientViewModel : BaseRXViewModel() {
 
         ioViewModelScope.launch {
             conn?.let {
-                conn?.handler?.interrupt()
-                conn?.handler?.join()
-
-                conn?.socket?.close()
-
+                conn?.close()
                 conn = null
             }
         }
@@ -294,15 +290,7 @@ class ClientViewModel : BaseRXViewModel() {
 
         ioViewModelScope.launch {
             conn?.let {
-                conn?.handler?.interrupt()
-                conn?.handler?.join()
-
-
-                if ((conn?.socket as? DatagramSocket)?.isConnected == true) {
-                    (conn?.socket as? DatagramSocket)?.send(disconnect)
-                }
-
-                conn?.socket?.close()
+                conn?.close()
 
                 conn = null
             }
