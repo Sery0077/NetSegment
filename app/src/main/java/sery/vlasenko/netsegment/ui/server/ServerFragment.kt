@@ -12,6 +12,7 @@ import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.databinding.FragmentServerBinding
 import sery.vlasenko.netsegment.model.connections.ConnectionState
 import sery.vlasenko.netsegment.model.connections.Protocol
+import sery.vlasenko.netsegment.ui.result.DialogFragmentResult
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
 import sery.vlasenko.netsegment.ui.server.dialog_start_test.DialogStartTest
 import sery.vlasenko.netsegment.ui.server.log.LogAdapter
@@ -20,7 +21,7 @@ import sery.vlasenko.netsegment.utils.extensions.setConnState
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
-class ServerFragment : Fragment(), DialogStartTest.DialogStartTestClickListener {
+class ServerFragment : Fragment(), DialogStartTest.DialogStartTestClickListener, DialogFragmentResult.ResultClickListener {
 
     companion object {
         fun newInstance() = ServerFragment()
@@ -176,6 +177,7 @@ class ServerFragment : Fragment(), DialogStartTest.DialogStartTestClickListener 
         }
 
         binding.connBtnShowResult.throttleClick {
+            DialogFragmentResult().show(childFragmentManager, null)
             viewModel.onResultClick()
         }
     }
@@ -238,6 +240,10 @@ class ServerFragment : Fragment(), DialogStartTest.DialogStartTestClickListener 
 
             }
         }
+    }
+
+    override fun onSaveResultClicked() {
+        viewModel.onSaveResultClicked(requireContext())
     }
 
     override fun onStartTestClick(iterationCount: Int) {

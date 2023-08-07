@@ -11,7 +11,6 @@ class ServerTcpConnectionHandler(
 ) : MyThread() {
 
     override fun run() {
-        while (!isInterrupted) {
             try {
                 val socket = socket.accept()
 
@@ -22,7 +21,6 @@ class ServerTcpConnectionHandler(
             } catch (e: SocketException) {
                 interrupt()
             }
-        }
     }
 
 }

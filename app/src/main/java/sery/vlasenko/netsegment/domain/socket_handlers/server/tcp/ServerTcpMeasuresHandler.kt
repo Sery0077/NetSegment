@@ -29,18 +29,18 @@ class ServerTcpMeasuresHandler(
     private val measuresEnd = TcpPacketMeasuresEnd().send()
     private val measuresAsk = TcpPacketMeasuresAsk().send()
 
-    private val size = ByteArray(2)
-    private val packetArray = ByteArray(1500)
+        private val size = ByteArray(2)
+        private val packetArray = ByteArray(1500)
 
-    private val packetFactory: PacketFactory = PacketFactory()
+        private val packetFactory: PacketFactory = PacketFactory()
 
-    private val testResultHandler = TestResultHandler()
+        private val testResultHandler = TestResultHandler()
 
-    private var lastTimePingSend = 0L
+        private var lastTimePingSend = 0L
 
-    private val startMeasuresTryCount = 5
+        private val startMeasuresTryCount = 5
 
-    override fun run() {
+        override fun run() {
         socket.soTimeout = PING_TIMEOUT
 
         if (tryStartMeasures()) {
@@ -77,7 +77,7 @@ class ServerTcpMeasuresHandler(
 
                         val receivedTime = System.nanoTime()
 
-                        sendCallback(ServerTestCallback.PingGet((lastTimePingSend - receivedTime) / 1000))
+                        sendCallback(ServerTestCallback.PingGet(receivedTime - lastTimePingSend))
 
                         testResultHandler.handlePackets(
                             sentPacket = sendPacket,
@@ -126,9 +126,7 @@ class ServerTcpMeasuresHandler(
                 if (packetArray[0] == TcpPacketType.MEASURES_ASK.typeByte) {
                     return true
                 }
-            } catch (e: SocketException) {
-                return false
-            } catch (e: SocketTimeoutException) {
+            } catch (e: Exception) {
                 return false
             }
         }

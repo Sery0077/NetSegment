@@ -54,10 +54,10 @@ class ClientUdpHandler(
                     UdpPacketType.MEASURES.typeByte -> {
                         when (buf.data[5]) {
                             UdpPacketType.MEASURES_ASK.subTypeByte -> {
+                                pingThread.stopPing()
                                 socket.send(measuresAsk)
                             }
                             UdpPacketType.MEASURES_START.subTypeByte -> {
-                                pingThread.stopPing()
                                 sendCallback(ClientHandlerCallback.MeasuresStart)
                             }
                             UdpPacketType.MEASURES_END.subTypeByte -> {

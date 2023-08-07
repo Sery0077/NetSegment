@@ -32,6 +32,8 @@ class TcpPingThread(
                     interrupt()
                     onSocketException.invoke()
                 }
+
+                trySleep(50)
             }
 
             trySleep(50)

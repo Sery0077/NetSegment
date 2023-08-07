@@ -22,7 +22,7 @@ class UdpPingThread(
 
     override fun run() {
         while (!isInterrupted) {
-            if (isPinging.get() && System.currentTimeMillis() - lastTimePing > 200) {
+            if (isPinging.get() && System.currentTimeMillis() - lastTimePing > 500) {
                 try {
                     socket.send(ping)
 

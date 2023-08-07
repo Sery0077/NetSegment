@@ -23,9 +23,9 @@ class ServerUdpConnectionHandler(
     private val buf = datagramPacketFromSize(UdpPacketConnect.packetSize)
 
     override fun run() {
-        socket.soTimeout = 50
+//        socket.soTimeout = 50
 
-        while (!isInterrupted) {
+//        while (!isInterrupted) {
             try {
                 socket.receive(buf)
 
@@ -39,7 +39,7 @@ class ServerUdpConnectionHandler(
             } catch (e: SocketException) {
                 interrupt()
             }
-        }
+//        }
     }
 
 }

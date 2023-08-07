@@ -1,11 +1,16 @@
 package sery.vlasenko.netsegment.ui.server
 
+import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.viewModelScope
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.kotlin.subscribeBy
 import io.reactivex.rxjava3.schedulers.Schedulers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import okio.IOException
 import sery.vlasenko.netsegment.R
 import sery.vlasenko.netsegment.data.NetworkModule
 import sery.vlasenko.netsegment.domain.socket_handlers.server.tcp.ServerTcpConnectionHandler
@@ -24,7 +29,10 @@ import sery.vlasenko.netsegment.model.test.TestResult
 import sery.vlasenko.netsegment.ui.base.BaseRXViewModel
 import sery.vlasenko.netsegment.ui.server.connections.ConnectionItem
 import sery.vlasenko.netsegment.utils.ResourceProvider
-import sery.vlasenko.netsegment.utils.Scripts
+import sery.vlasenko.netsegment.utils.TestScripts
+import sery.vlasenko.netsegment.utils.toTimeFormat
+import java.io.File
+import java.io.OutputStreamWriter
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.ServerSocket
@@ -185,7 +193,7 @@ class ServerViewModel : BaseRXViewModel() {
     ): ServerTcpMeasuresHandler =
         ServerTcpMeasuresHandler(
             socket = connection.socket,
-            testScript = Scripts.testScript,
+            testScript = TestScripts.testScript,
             iterationCount = iterationCount,
             callback = this::handleTestCallback
         )
@@ -196,7 +204,7 @@ class ServerViewModel : BaseRXViewModel() {
     ): ServerUdpMeasuresHandler =
         ServerUdpMeasuresHandler(
             socket = connection.socket,
-            testScript = Scripts.testScript,
+            testScript = TestScripts.testScript,
             iterationCount = iterationCount,
             callback = this::handleTestCallback
         )
@@ -238,13 +246,15 @@ class ServerViewModel : BaseRXViewModel() {
     }
 
     fun onStopTestClick() {
-//        conn?.handler?.interrupt()
-//        conn?.handler = null
-//
-//        (conn as? TcpConnection)?.let { conn ->
-//            conn.handler = getPingHandler(conn.socket)
-//            conn.handler?.start()
-//        }
+        conn?.interruptHandler()
+
+        (conn as? TcpConnection)?.let { conn ->
+            conn.setAndStartNewHandler(getTcpPingHandler(conn.socket))
+        }
+
+        (conn as? UdpConnection)?.let { conn ->
+            conn.setAndStartNewHandler(getUdpPingHandler(conn.socket))
+        }
     }
 
     fun onResultClick() {
@@ -433,6 +443,110 @@ class ServerViewModel : BaseRXViewModel() {
             Protocol.UDP -> openUdpSocket(port)
             Protocol.TCP -> openTcpSocket(port)
         }
+    }
+
+    fun onSaveResultClicked(context: Context) {
+        ioViewModelScope.launch {
+            testResult?.let {
+                try {
+                    val path = context.getExternalFilesDir(null)
+                    val file =
+                        File(path, "measure_${System.currentTimeMillis().toTimeFormat()}.csv")
+
+                    val writer = OutputStreamWriter(file.outputStream(), Charsets.UTF_8)
+
+                    writeDataSize(it, writer)
+                    writeDelays(it, writer)
+                    writeDelayJitter(it, writer)
+                    writeLosses(it, writer)
+
+                    writeAll(it, writer)
+
+                    writer.close()
+
+                    _singleEvent.postValue(SingleEvent.ShowToastEvent("Results is saved"))
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                    _singleEvent.postValue(SingleEvent.ShowToastEvent("${e.message}"))
+                }
+            }
+        }
+    }
+
+    private fun writeAll(testResult: TestResult, writer: OutputStreamWriter) {
+        writer.write("\n\n\n")
+
+        writer.write("Sent packets size;")
+
+        testResult.sentPacketsBySize.forEach {
+            writer.write("${it.key};")
+        }
+
+        writer.write("\n")
+
+        writer.write("Received packets size;")
+
+        testResult.receivedPacketsBySize.forEach {
+            writer.write("${it.key};")
+        }
+
+        writer.write("\n")
+
+        testResult.delaysBySize.forEach { map ->
+            writer.write("${map.key};")
+            map.value.forEach {
+                writer.write("$it;")
+            }
+            writer.write("\n")
+        }
+
+        writer.flush()
+    }
+
+    private fun writeLosses(testResult: TestResult, writer: OutputStreamWriter) {
+        writer.write("\"Losses\";")
+
+        testResult.sentPacketsBySize.forEach {
+            val losses = testResult.receivedPacketsBySize.getOrElse(it.key) { -1 } - it.value
+            writer.write("$losses;")
+        }
+
+        writer.write("\n")
+        writer.flush()
+    }
+
+    private fun writeDelayJitter(testResult: TestResult, writer: OutputStreamWriter) {
+        writer.write("\"Delay jitter, mcs\";")
+
+        testResult.delaysBySize.forEach {
+            val jitter = it.value.max() - it.value.min()
+            writer.write("$jitter;")
+        }
+
+        writer.write("\n")
+        writer.flush()
+    }
+
+    private fun writeDelays(testResult: TestResult, writer: OutputStreamWriter) {
+        writer.write("\"Delays, mcs\";")
+
+        testResult.averageDelaysBySize.values.forEach {
+            writer.write("${it.toInt()};")
+        }
+
+        writer.write("\n")
+        writer.flush()
+    }
+
+    private fun writeDataSize(testResult: TestResult, writer: OutputStreamWriter) {
+        writer.write("\"Packet size, bytes\";")
+
+        testResult.sentPacketsBySize.keys.forEach {
+            writer.write("$it;")
+        }
+
+        writer.write("\n")
+        writer.flush()
     }
 
     companion object {

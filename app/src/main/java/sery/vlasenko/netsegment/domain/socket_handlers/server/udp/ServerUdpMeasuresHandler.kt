@@ -80,7 +80,7 @@ class ServerUdpMeasuresHandler(
                             return
                         }
 
-                        sendCallback(ServerTestCallback.PingGet((lastTimePingSend - receivedTime) / 1000))
+                        sendCallback(ServerTestCallback.PingGet(receivedTime - lastTimePingSend))
 
                         testResultHandler.handlePackets(
                             sentPacket = sendPacket,

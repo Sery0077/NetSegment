@@ -9,10 +9,10 @@ import java.lang.Integer.min
 data class TestResult(
     val averagePing: Float,
     val jitter: Int,
-    val sentPacketsBySize: HashMap<Int, Int>,
-    val receivedPacketsBySize: HashMap<Int, Int>,
-    val delaysBySize: HashMap<Int, MutableList<Int>>,
-    val averageDelaysBySize: HashMap<Int, Float>,
+    val sentPacketsBySize: LinkedHashMap<Int, Int>,
+    val receivedPacketsBySize: LinkedHashMap<Int, Int>,
+    val delaysBySize: LinkedHashMap<Int, MutableList<Int>>,
+    val averageDelaysBySize: LinkedHashMap<Int, Float>,
 
     val lossPacketCount: Int = sentPacketsBySize.values.size - receivedPacketsBySize.values.size,
     val packetCount: Int = delaysBySize.values.sumOf { it.size },

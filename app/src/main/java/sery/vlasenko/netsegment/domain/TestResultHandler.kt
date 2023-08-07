@@ -8,10 +8,10 @@ import kotlin.math.min
 
 class TestResultHandler {
 
-    private val sentPacketsCountBySize = hashMapOf<Int, Int>()
-    private val receivedPacketsBySize = hashMapOf<Int, Int>()
+    private val sentPacketsCountBySize = linkedMapOf<Int, Int>()
+    private val receivedPacketsBySize = linkedMapOf<Int, Int>()
 
-    private val delaysBySize = hashMapOf<Int, MutableList<Int>>()
+    private val delaysBySize = linkedMapOf<Int, MutableList<Int>>()
 
     private var maxPing = 0
     private var minPing = 0
@@ -47,14 +47,13 @@ class TestResultHandler {
     }
 
     fun getResult(): TestResult = TestResult(
-        averagePing = delaysBySize.values.sumOf { it.sum() } / delaysBySize.values.sumOf { it.size }
-            .toFloat(),
+        averagePing = delaysBySize.values.sumOf { it.sum() } / delaysBySize.values.sumOf { it.size }.toFloat(),
         jitter = maxPing - minPing,
         lossPacketCount = sentPacketCount - receivedPacketCount,
         sentPacketsBySize = sentPacketsCountBySize,
         receivedPacketsBySize = receivedPacketsBySize,
         delaysBySize = delaysBySize,
-        averageDelaysBySize = delaysBySize.mapValuesTo(hashMapOf()) { it.value.average().toFloat() }
+        averageDelaysBySize = delaysBySize.mapValuesTo(linkedMapOf()) { it.value.average().toFloat() }
     )
 
 }

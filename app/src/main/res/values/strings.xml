@@ -49,5 +49,6 @@
 
     <string name="conn_state_idle">IDLE</string>
     <string name="conn_state_measure">MEASURE</string>
+    <string name="save_result">Save result</string>
 
 </resources>
